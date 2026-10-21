@@ -10,8 +10,13 @@ export async function GET(request: Request) {
     return NextResponse.json(catalog);
   } catch (error: any) {
     return NextResponse.json(
-      { error: 'Failed to fetch formula catalog', message: error.message },
-      { status: 500 }
+      {
+        error: 'Failed to fetch formula catalog',
+        message: error?.message || 'Unable to load formula catalog. You may be offline or rate-limited.',
+        formulas: [],
+        total: 0,
+      },
+      { status: 502 }
     );
   }
 }

@@ -42,6 +42,17 @@ describe('Formula Ruby Parser', () => {
     expect(formula.version).toBe('2.3.1');
   });
 
+  it('extracts version from url ending in .tar.xz without including .tar', () => {
+    const rb = `
+      class Coreutils < Formula
+        desc "GNU File, Shell, and Text utilities"
+        url "https://ftpmirror.gnu.org/coreutils/coreutils-9.12.tar.xz"
+      end
+    `;
+    const formula = parseFormulaRuby('coreutils', rb);
+    expect(formula.version).toBe('9.12');
+  });
+
   it('parses revision and constructs fullVersion with revision suffix', () => {
     const ffmpegRb = `
       class Ffmpeg < Formula

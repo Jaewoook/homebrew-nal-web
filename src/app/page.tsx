@@ -7,42 +7,59 @@ import { BuildQueueStream } from '@/components/builds/BuildQueueStream';
 import { useBuilds } from '@/hooks/useBuilds';
 import { Formula } from '@/types/formula';
 import { UserSession } from '@/lib/auth';
-import { CheckCircle2, Github } from 'lucide-react';
+import { CheckCircle2, Github, WifiOff } from 'lucide-react';
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<'catalog' | 'queue'>('catalog');
   const [formulas, setFormulas] = useState<Formula[]>([]);
   const [loadingFormulas, setLoadingFormulas] = useState(true);
+  const [formulasError, setFormulasError] = useState<string | null>(null);
   const [user, setUser] = useState<UserSession | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  const { runs, activeRuns, activeBuildingFormulas, loading: loadingBuilds, refresh: refreshBuilds } = useBuilds(10000);
+  const {
+    runs,
+    activeRuns,
+    activeBuildingFormulas,
+    loading: loadingBuilds,
+    error: buildsError,
+    refresh: refreshBuilds,
+  } = useBuilds(10000);
 
   // Load initial formulas & session
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [formulasRes, sessionRes] = await Promise.all([
-          fetch('/api/formulas'),
-          fetch('/api/auth/session'),
-        ]);
+  async function loadData() {
+    setLoadingFormulas(true);
+    setFormulasError(null);
+    try {
+      const [formulasRes, sessionRes] = await Promise.all([
+        fetch('/api/formulas'),
+        fetch('/api/auth/session'),
+      ]);
 
-        if (formulasRes.ok) {
-          const data = await formulasRes.json();
-          setFormulas(data.formulas || []);
-        }
-
-        if (sessionRes.ok) {
-          const sessionData = await sessionRes.json();
-          setUser(sessionData.user);
-        }
-      } catch (err) {
-        console.error('Failed to initialize page data:', err);
-      } finally {
-        setLoadingFormulas(false);
+      if (formulasRes.ok) {
+        const data = await formulasRes.json();
+        setFormulas(data.formulas || []);
+      } else {
+        const errData = await formulasRes.json().catch(() => ({}));
+        setFormulasError(
+          errData.message || 'Unable to connect to formula repository. You may be offline or rate-limited.'
+        );
+        setFormulas([]);
       }
-    }
 
+      if (sessionRes.ok) {
+        const sessionData = await sessionRes.json();
+        setUser(sessionData.user);
+      }
+    } catch (err: any) {
+      setFormulasError(err?.message || 'Network error: unable to reach the server.');
+      setFormulas([]);
+    } finally {
+      setLoadingFormulas(false);
+    }
+  }
+
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -109,6 +126,20 @@ export default function HomePage() {
 
             {loadingFormulas ? (
               <div className="text-center py-16 text-slate-500 text-xs">Loading formula catalog...</div>
+            ) : formulasError && formulas.length === 0 ? (
+              <div className="text-center py-16 border border-dashed border-red-900/40 rounded-xl bg-red-950/10 p-6 space-y-3">
+                <WifiOff className="w-8 h-8 text-red-400/80 mx-auto" />
+                <div>
+                  <p className="font-semibold text-slate-200 text-sm">Formula catalog is currently unavailable</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">{formulasError}</p>
+                </div>
+                <button
+                  onClick={loadData}
+                  className="px-4 py-1.5 text-xs font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+                >
+                  Retry Connection
+                </button>
+              </div>
             ) : (
               <FormulaList
                 formulas={formulas}
@@ -120,7 +151,12 @@ export default function HomePage() {
             )}
           </div>
         ) : (
-          <BuildQueueStream runs={runs} loading={loadingBuilds} onRefresh={refreshBuilds} />
+          <BuildQueueStream
+            runs={runs}
+            loading={loadingBuilds}
+            error={buildsError}
+            onRefresh={refreshBuilds}
+          />
         )}
       </main>
 

@@ -17,14 +17,23 @@ export function parseFormulaRuby(name: string, content: string): Formula {
 
   // Extract from url if explicit version is absent
   if (!version && urlMatch) {
-    const url = urlMatch[1];
-    const tagMatch = url.match(/\/v?([0-9]+\.[0-9]+(?:\.[0-9a-zA-Z_\-]+)?)(?:\.tar\.gz|\.tgz|\.zip|\/archive)/);
+    const rawUrl = urlMatch[1];
+    // Strip query strings or hash
+    const url = rawUrl.split(/[?#]/)[0];
+    const tagMatch = url.match(/\/v?([0-9]+\.[0-9]+(?:\.[0-9a-zA-Z_\-]+)?)(?:\.tar\.(?:gz|xz|bz2|zst)|\.tgz|\.tbz|\.zip|\/archive)/i);
     if (tagMatch) {
       version = tagMatch[1];
     } else {
-      const genericVersionMatch = url.match(/([0-9]+\.[0-9]+(?:\.[0-9a-zA-Z_\-]+)?)/);
+      // Remove archive extensions first before generic version matching
+      const cleanUrl = url.replace(/(?:\.tar\.(?:gz|xz|bz2|zst)|\.tar|\.tgz|\.tbz|\.zip|\.7z)$/i, '');
+      const genericVersionMatch = cleanUrl.match(/[-_./]v?([0-9]+\.[0-9]+(?:\.[0-9a-zA-Z_\-]+)?)$/);
       if (genericVersionMatch) {
         version = genericVersionMatch[1];
+      } else {
+        const fallbackMatch = cleanUrl.match(/([0-9]+\.[0-9]+(?:\.[0-9a-zA-Z_\-]+)?)/);
+        if (fallbackMatch) {
+          version = fallbackMatch[1].replace(/\.tar$/i, '');
+        }
       }
     }
   }

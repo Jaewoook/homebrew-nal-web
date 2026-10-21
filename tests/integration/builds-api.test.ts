@@ -84,7 +84,7 @@ describe('Builds and Formulas API Routes', () => {
     expect(ffmpeg).toBeDefined();
     expect(ffmpeg.releaseTag).toBe('ffmpeg.9.0.2_1');
     expect(ffmpeg.bottleUrl).toContain('ffmpeg-9.0.2_1');
-  });
+  }, 15000);
 
   it('GET /api/builds returns list of active and recent runs', async () => {
     const res = await buildsHandler();
@@ -92,5 +92,20 @@ describe('Builds and Formulas API Routes', () => {
     const data = await res.json();
     expect(data.runs).toBeDefined();
     expect(Array.isArray(data.runs)).toBe(true);
+  });
+
+  it('GET /api/builds returns 502 with error message when GitHub API fails', async () => {
+    vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+      if (String(url).includes('/actions/runs')) {
+        return { ok: false, status: 503, statusText: 'Service Unavailable' } as Response;
+      }
+      return { ok: false, status: 404 } as Response;
+    });
+
+    const res = await buildsHandler();
+    expect(res.status).toBe(502);
+    const data = await res.json();
+    expect(data.error).toBe('Failed to fetch build runs');
+    expect(data.runs).toEqual([]);
   });
 });

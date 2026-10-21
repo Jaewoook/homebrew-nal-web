@@ -6,6 +6,7 @@ import { WorkflowRun } from '@/lib/github-client';
 export function useBuilds(pollingIntervalMs = 10000) {
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchBuilds = useCallback(async () => {
     try {
@@ -14,9 +15,15 @@ export function useBuilds(pollingIntervalMs = 10000) {
       if (res.ok) {
         const data = await res.json();
         setRuns(data.runs || []);
+        setError(null);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.message || 'Unable to connect to GitHub Actions API. You may be offline or rate-limited.');
+        setRuns([]);
       }
-    } catch (err) {
-      console.warn('Failed to fetch builds:', err);
+    } catch (err: any) {
+      setError(err?.message || 'Network error: unable to reach the server.');
+      setRuns([]);
     } finally {
       setLoading(false);
     }
@@ -39,6 +46,7 @@ export function useBuilds(pollingIntervalMs = 10000) {
     activeRuns,
     activeBuildingFormulas,
     loading,
+    error,
     refresh: fetchBuilds,
   };
 }
