@@ -1,4 +1,4 @@
-import { getRecentDispatches, findDispatchForFormula } from './dispatch-store';
+import { getRecentDispatches, DispatchRecord } from './dispatch-store';
 
 export interface WorkflowRun {
   id: number;
@@ -15,7 +15,51 @@ export interface WorkflowRun {
 const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER || 'jaewoook';
 const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME || 'homebrew-nal';
 const GITHUB_SYNC_WORKFLOW = process.env.GITHUB_SYNC_WORKFLOW || 'sync-upstream.yml';
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_PAT;
+
+export function formatRunDuration(startTime: string, endTime?: string): string {
+  const start = new Date(startTime).getTime();
+  const end = endTime ? new Date(endTime).getTime() : Date.now();
+  const diffSec = Math.max(0, Math.floor((end - start) / 1000));
+
+  const minutes = Math.floor(diffSec / 60);
+  const seconds = diffSec % 60;
+
+  if (minutes === 0) {
+    return `${seconds}s`;
+  }
+  return `${minutes}m ${seconds}s`;
+}
+
+export function correlateRunActor(
+  run: { event?: string; created_at: string },
+  recentDispatches: DispatchRecord[]
+): { actor: string; formula?: string } {
+  if (run.event === 'schedule') {
+    return { actor: 'Scheduled Cron' };
+  }
+  if (run.event === 'push') {
+    return { actor: 'Git Push' };
+  }
+
+  // Only attribute workflow_dispatch events to user dispatches
+  if (run.event === 'workflow_dispatch') {
+    const runTime = new Date(run.created_at).getTime();
+    for (const d of recentDispatches) {
+      const diff = Math.abs(runTime - d.created_at);
+      if (diff < 1000 * 60 * 30) {
+        // Within 30 minutes
+        return {
+          actor: `${d.requested_by} (Authentik)`,
+          formula: d.formula,
+        };
+      }
+    }
+    return { actor: 'NAL User (via GitHub)' };
+  }
+
+  return { actor: run.event || 'Unknown' };
+}
 
 export async function dispatchSyncWorkflow(formula: string): Promise<{ success: boolean; error?: string }> {
   if (!GITHUB_TOKEN) {
@@ -55,7 +99,6 @@ export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
   const recentDispatches = getRecentDispatches(20);
 
   if (!GITHUB_TOKEN) {
-    // Generate runs based on SQLite records or sample data
     const mockRuns: WorkflowRun[] = recentDispatches.map((d, index) => ({
       id: 1000 + index,
       name: `Sync & Build: ${d.formula}`,
@@ -68,7 +111,6 @@ export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
       created_at: new Date(d.created_at).toISOString(),
     }));
 
-    // If no recent dispatches, add default sample runs
     if (mockRuns.length === 0) {
       mockRuns.push(
         {
@@ -116,27 +158,20 @@ export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
 
     const data = await res.json();
     const runs = (data.workflow_runs || []).map((run: any) => {
-      // Correlate with SQLite dispatch if available
-      let matchedFormula: string | undefined = undefined;
-      let actor = run.event === 'schedule' ? 'Scheduled Cron' : 'Git Push';
-
-      for (const d of recentDispatches) {
-        const diff = Math.abs(new Date(run.created_at).getTime() - d.created_at);
-        if (diff < 1000 * 60 * 30) {
-          // Within 30 minutes
-          matchedFormula = d.formula;
-          actor = `${d.requested_by} (Authentik)`;
-          break;
-        }
-      }
+      const { actor, formula } = correlateRunActor(run, recentDispatches);
+      const duration = formatRunDuration(
+        run.run_started_at || run.created_at,
+        run.status === 'completed' ? run.updated_at : undefined
+      );
 
       return {
         id: run.id,
         name: run.name || 'Workflow Run',
-        formula: matchedFormula,
+        formula,
         status: run.status,
         conclusion: run.conclusion,
         actor,
+        duration,
         html_url: run.html_url,
         created_at: run.created_at,
       };

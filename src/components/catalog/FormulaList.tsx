@@ -10,6 +10,7 @@ interface FormulaListProps {
   isAuthenticated: boolean;
   activeBuildingFormulas?: string[];
   onDispatchSuccess?: (formulaName: string) => void;
+  onSessionExpired?: () => void;
 }
 
 export function FormulaList({
@@ -17,6 +18,7 @@ export function FormulaList({
   isAuthenticated,
   activeBuildingFormulas = [],
   onDispatchSuccess,
+  onSessionExpired,
 }: FormulaListProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -53,6 +55,7 @@ export function FormulaList({
               isAuthenticated={isAuthenticated}
               isBuilding={activeBuildingFormulas.includes(formula.name)}
               onDispatchSuccess={onDispatchSuccess}
+              onSessionExpired={onSessionExpired}
             />
           ))}
         </div>

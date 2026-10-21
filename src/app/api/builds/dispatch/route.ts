@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { validateSession } from '@/lib/auth';
 import { recordDispatch } from '@/lib/dispatch-store';
 import { dispatchSyncWorkflow } from '@/lib/github-client';
+import { checkRateLimit } from '@/lib/rate-limiter';
 
 const FORMULA_REGEX = /^[a-zA-Z0-9_.\-]+$/;
 
@@ -11,6 +12,21 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: 'Unauthorized', message: 'You must be signed in with a NAL account to request builds.' },
       { status: 401 }
+    );
+  }
+
+  // 1. Rate limiting: max 3 dispatches per 5 minutes per user
+  const rateLimit = checkRateLimit(user.name, 3, 5 * 60 * 1000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: 'Too Many Requests',
+        message: `Rate limit exceeded. Please wait ${rateLimit.retryAfter} seconds before requesting another build.`,
+      },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(rateLimit.retryAfter || 60) },
+      }
     );
   }
 
@@ -29,10 +45,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 1. Record dispatch in local SQLite attribution store
-  const record = recordDispatch(formula, user.name, user.email || undefined);
-
-  // 2. Dispatch GitHub Actions workflow
+  // 2. Dispatch GitHub Actions workflow first
   const result = await dispatchSyncWorkflow(formula);
   if (!result.success) {
     return NextResponse.json(
@@ -40,6 +53,9 @@ export async function POST(request: Request) {
       { status: 502 }
     );
   }
+
+  // 3. Record dispatch in local SQLite attribution store only upon successful dispatch
+  const record = recordDispatch(formula, user.name, user.email || undefined);
 
   return NextResponse.json(
     {

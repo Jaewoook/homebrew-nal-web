@@ -9,6 +9,7 @@ interface FormulaCardProps {
   isAuthenticated: boolean;
   isBuilding?: boolean;
   onDispatchSuccess?: (formulaName: string) => void;
+  onSessionExpired?: () => void;
 }
 
 export function FormulaCard({
@@ -16,6 +17,7 @@ export function FormulaCard({
   isAuthenticated,
   isBuilding = false,
   onDispatchSuccess,
+  onSessionExpired,
 }: FormulaCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -27,13 +29,17 @@ export function FormulaCard({
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(installCommand);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(installCommand);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const handleDispatch = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isBuilding) return;
+
     setDispatching(true);
     setErrorMsg(null);
 
@@ -43,6 +49,12 @@ export function FormulaCard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ formula: formula.name }),
       });
+
+      if (res.status === 401) {
+        onSessionExpired?.();
+        setErrorMsg('Session expired. Please sign in with your NAL account again.');
+        return;
+      }
 
       if (res.ok) {
         setDispatched(true);
@@ -56,6 +68,15 @@ export function FormulaCard({
     } finally {
       setDispatching(false);
     }
+  };
+
+  const isButtonDisabled = dispatching || dispatched || isBuilding;
+
+  const getButtonText = () => {
+    if (dispatching) return 'Dispatching...';
+    if (dispatched) return 'Dispatched ✓';
+    if (isBuilding) return 'Building in Progress...';
+    return 'Request Sync & Build';
   };
 
   return (
@@ -197,15 +218,17 @@ export function FormulaCard({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleDispatch}
-                    disabled={dispatching || dispatched}
+                    disabled={isButtonDisabled}
                     className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer ${
                       dispatched
                         ? 'bg-emerald-600 text-white'
+                        : isBuilding
+                        ? 'bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-700'
                         : 'bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50'
                     }`}
                   >
                     {dispatching && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    {dispatched ? 'Dispatched ✓' : 'Request Sync & Build'}
+                    <span>{getButtonText()}</span>
                   </button>
                 </div>
               </div>

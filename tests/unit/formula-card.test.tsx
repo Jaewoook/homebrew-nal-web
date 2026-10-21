@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { FormulaCard } from '@/components/catalog/FormulaCard';
 
@@ -34,6 +34,40 @@ describe('FormulaCard Component', () => {
 
     rerender(<FormulaCard formula={sampleFormula} isAuthenticated={true} />);
     expect(screen.getByText('Request Sync & Build')).toBeDefined();
+  });
+
+  it('disables button when formula is currently building', () => {
+    render(<FormulaCard formula={sampleFormula} isAuthenticated={true} isBuilding={true} />);
+    fireEvent.click(screen.getByText('nal-core'));
+
+    const button = screen.getByRole('button', { name: /Building in Progress/i });
+    expect(button).toBeDefined();
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('notifies onSessionExpired when dispatch returns 401', async () => {
+    const onSessionExpired = vi.fn();
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ message: 'Session expired' }),
+    } as Response);
+
+    render(
+      <FormulaCard
+        formula={sampleFormula}
+        isAuthenticated={true}
+        onSessionExpired={onSessionExpired}
+      />
+    );
+    fireEvent.click(screen.getByText('nal-core'));
+
+    const button = screen.getByText('Request Sync & Build');
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(onSessionExpired).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('displays upstream update badge when available', () => {

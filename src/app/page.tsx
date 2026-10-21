@@ -7,7 +7,7 @@ import { BuildQueueStream } from '@/components/builds/BuildQueueStream';
 import { useBuilds } from '@/hooks/useBuilds';
 import { Formula } from '@/types/formula';
 import { UserSession } from '@/lib/auth';
-import { CheckCircle2, Github, Terminal } from 'lucide-react';
+import { CheckCircle2, Github } from 'lucide-react';
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<'catalog' | 'queue'>('catalog');
@@ -49,7 +49,13 @@ export default function HomePage() {
   const handleDispatchSuccess = (formulaName: string) => {
     setToastMsg(`Build request for "${formulaName}" successfully dispatched to GitHub Actions!`);
     refreshBuilds();
+    // Auto-switch to build queue view to monitor progress as specified in PRD
+    setActiveTab('queue');
     setTimeout(() => setToastMsg(null), 5000);
+  };
+
+  const handleSessionExpired = () => {
+    setUser(null);
   };
 
   return (
@@ -109,6 +115,7 @@ export default function HomePage() {
                 isAuthenticated={Boolean(user)}
                 activeBuildingFormulas={activeBuildingFormulas}
                 onDispatchSuccess={handleDispatchSuccess}
+                onSessionExpired={handleSessionExpired}
               />
             )}
           </div>

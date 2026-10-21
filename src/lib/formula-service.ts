@@ -9,6 +9,10 @@ const CACHE_TTL_SECONDS = Number(process.env.CACHE_TTL_SECONDS || '600');
 
 let catalogCache: { data: FormulaCatalog; timestamp: number } | null = null;
 
+export function setCatalogCacheForTesting(data: FormulaCatalog, timestamp: number): void {
+  catalogCache = { data, timestamp };
+}
+
 // Embedded sample formulas for local development / testing fallback
 const SAMPLE_FORMULAS: Record<string, string> = {
   'nal-core': `
@@ -61,12 +65,14 @@ export async function getFormulaCatalog(forceRefresh = false): Promise<FormulaCa
   }
 
   const formulas: Formula[] = [];
+  let fetchFailed = false;
 
   try {
-    if (GITHUB_TOKEN) {
+    const token = GITHUB_TOKEN || process.env.GITHUB_PAT;
+    if (token) {
       const headers: Record<string, string> = {
         Accept: 'application/vnd.github.v3+json',
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Authorization: `Bearer ${token}`,
       };
 
       const res = await fetch(
@@ -90,14 +96,27 @@ export async function getFormulaCatalog(forceRefresh = false): Promise<FormulaCa
             formulas.push(formula);
           }
         }
+      } else {
+        fetchFailed = true;
+        console.warn(`GitHub API contents returned ${res.status}: ${res.statusText}`);
       }
     }
   } catch (err) {
-    console.warn('Failed to fetch formulas from GitHub, falling back to cached/sample catalog:', err);
+    fetchFailed = true;
+    console.warn('Failed to fetch formulas from GitHub:', err);
   }
 
-  // Fallback to sample formulas if no formulas were fetched
+  // If fetch failed but we have an existing cache, preserve and return it (stale-while-revalidate)
+  if (fetchFailed && catalogCache) {
+    console.info('Serving existing formula cache due to GitHub API error.');
+    return catalogCache.data;
+  }
+
+  // Fallback to sample formulas if no formulas were fetched and no previous cache exists
   if (formulas.length === 0) {
+    if (catalogCache) {
+      return catalogCache.data;
+    }
     for (const [name, content] of Object.entries(SAMPLE_FORMULAS)) {
       const formula = parseFormulaRuby(name, content);
       const upstream = await checkUpstreamVersion(name);

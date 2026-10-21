@@ -3,10 +3,12 @@ import { POST as dispatchHandler } from '@/app/api/builds/dispatch/route';
 import { GET as buildsHandler } from '@/app/api/builds/route';
 import { GET as formulasHandler } from '@/app/api/formulas/route';
 import { initDatabase } from '@/lib/dispatch-store';
+import { resetRateLimiter } from '@/lib/rate-limiter';
 
 describe('Builds and Formulas API Routes', () => {
   beforeEach(() => {
     initDatabase(':memory:');
+    resetRateLimiter();
     vi.restoreAllMocks();
   });
 
@@ -47,6 +49,27 @@ describe('Builds and Formulas API Routes', () => {
     expect(data.success).toBe(true);
     expect(data.formula).toBe('ffmpeg-nal');
     expect(data.requested_by).toBe('jaewook');
+  });
+
+  it('enforces rate limit of 3 dispatches per user and returns 429', async () => {
+    const makeReq = () =>
+      new Request('http://localhost:3000/api/builds/dispatch', {
+        method: 'POST',
+        body: JSON.stringify({ formula: 'ffmpeg-nal' }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-mock-user': 'jaewook',
+        },
+      });
+
+    await dispatchHandler(makeReq());
+    await dispatchHandler(makeReq());
+    await dispatchHandler(makeReq());
+
+    const fourth = await dispatchHandler(makeReq());
+    expect(fourth.status).toBe(429);
+    const body = await fourth.json();
+    expect(body.error).toBe('Too Many Requests');
   });
 
   it('GET /api/formulas returns catalog of formulas', async () => {

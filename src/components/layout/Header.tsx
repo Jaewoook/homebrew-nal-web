@@ -26,9 +26,11 @@ export function Header({
   const tapCommand = 'brew tap jaewoook/nal';
 
   const handleCopyTap = () => {
-    navigator.clipboard.writeText(tapCommand);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(tapCommand);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (
