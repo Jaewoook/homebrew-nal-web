@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getFormulaCatalog } from '@/lib/formula-service';
 
-export async function GET(request?: Request) {
-  const url = request ? new URL(request.url) : new URL('http://localhost:3000/api/formulas');
+export async function GET(request: Request) {
+  const url = new URL(request.url);
   const refresh = url.searchParams.get('refresh') === 'true';
 
   try {

@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.superpowers
+data
+*.db
+tests
+.env*.local
+README.md
+docs

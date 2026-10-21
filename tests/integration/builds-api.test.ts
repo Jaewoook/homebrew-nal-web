@@ -50,7 +50,8 @@ describe('Builds and Formulas API Routes', () => {
   });
 
   it('GET /api/formulas returns catalog of formulas', async () => {
-    const res = await formulasHandler();
+    const req = new Request('http://localhost:3000/api/formulas');
+    const res = await formulasHandler(req);
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.formulas).toBeDefined();
