@@ -41,4 +41,30 @@ describe('Formula Ruby Parser', () => {
     const formula = parseFormulaRuby('custom-tool', rbWithoutExplicitVersion);
     expect(formula.version).toBe('2.3.1');
   });
+
+  it('parses revision and constructs fullVersion with revision suffix', () => {
+    const ffmpegRb = `
+      class Ffmpeg < Formula
+        desc "Play, record, convert, and stream select audio and video codecs"
+        homepage "https://ffmpeg.org/"
+        url "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz"
+        license "GPL-3.0-or-later"
+        revision 1
+
+        bottle do
+          root_url "https://github.com/Jaewoook/homebrew-nal/releases/download/ffmpeg.9.0.2_1"
+          rebuild 1
+          sha256 sequoia: "5afb7967a84db5ccc3d4a8e0ac2cb7aa3db0408e5b6dece5cefc9aeaa55b86f1"
+        end
+      end
+    `;
+
+    const formula = parseFormulaRuby('ffmpeg', ffmpegRb);
+    expect(formula.name).toBe('ffmpeg');
+    expect(formula.version).toBe('9.0.2');
+    expect(formula.revision).toBe(1);
+    expect(formula.fullVersion).toBe('9.0.2_1');
+    expect(formula.hasBottle).toBe(true);
+    expect(formula.bottlePlatforms).toContain('sequoia');
+  });
 });

@@ -79,7 +79,11 @@ describe('Builds and Formulas API Routes', () => {
     const data = await res.json();
     expect(data.formulas).toBeDefined();
     expect(Array.isArray(data.formulas)).toBe(true);
-    expect(data.total).toBeGreaterThan(0);
+    expect(data.total).toBeGreaterThanOrEqual(20);
+    const ffmpeg = data.formulas.find((f: any) => f.name === 'ffmpeg');
+    expect(ffmpeg).toBeDefined();
+    expect(ffmpeg.releaseTag).toBe('ffmpeg.9.0.2_1');
+    expect(ffmpeg.bottleUrl).toContain('ffmpeg-9.0.2_1');
   });
 
   it('GET /api/builds returns list of active and recent runs', async () => {

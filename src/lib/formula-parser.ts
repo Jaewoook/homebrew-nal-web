@@ -6,6 +6,10 @@ export function parseFormulaRuby(name: string, content: string): Formula {
   const urlMatch = content.match(/url\s+["'](.*?)["']/);
   const licenseMatch = content.match(/license\s+["'](.*?)["']/);
 
+  // Explicit revision
+  const revisionMatch = content.match(/revision\s+([0-9]+)/);
+  const revision = revisionMatch ? parseInt(revisionMatch[1], 10) : undefined;
+
   // Explicit version
   const explicitVersionMatch = content.match(/version\s+["'](.*?)["']/);
 
@@ -32,17 +36,33 @@ export function parseFormulaRuby(name: string, content: string): Formula {
     dependencies.push(m[1]);
   }
 
-  // Bottle block presence
-  const hasBottle = /bottle\s+do[\s\S]*?end/.test(content);
+  // Bottle block presence & platforms
+  const bottleBlockMatch = content.match(/bottle\s+do([\s\S]*?)end/);
+  const hasBottle = Boolean(bottleBlockMatch);
+  const bottlePlatforms: string[] = [];
+
+  if (bottleBlockMatch) {
+    const bottleBlock = bottleBlockMatch[1];
+    const platformMatches = bottleBlock.matchAll(/sha256\s+([a-zA-Z0-9_]+):/g);
+    for (const pm of platformMatches) {
+      bottlePlatforms.push(pm[1]);
+    }
+  }
+
+  const baseVersion = version || 'unknown';
+  const fullVersion = revision && revision > 0 ? `${baseVersion}_${revision}` : baseVersion;
 
   return {
     name,
-    version: version || 'unknown',
+    version: baseVersion,
+    revision,
+    fullVersion,
     desc: descMatch ? descMatch[1] : '',
     homepage: homepageMatch ? homepageMatch[1] : undefined,
     url: urlMatch ? urlMatch[1] : undefined,
     license: licenseMatch ? licenseMatch[1] : undefined,
     dependencies,
     hasBottle,
+    bottlePlatforms: bottlePlatforms.length > 0 ? bottlePlatforms : undefined,
   };
 }

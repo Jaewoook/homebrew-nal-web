@@ -12,7 +12,7 @@ export interface WorkflowRun {
   created_at: string;
 }
 
-const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER || 'jaewoook';
+const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER || 'Jaewoook';
 const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME || 'homebrew-nal';
 const GITHUB_SYNC_WORKFLOW = process.env.GITHUB_SYNC_WORKFLOW || 'sync-upstream.yml';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_PAT;
@@ -115,8 +115,8 @@ export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
       mockRuns.push(
         {
           id: 901,
-          name: 'Sync & Build: nal-core',
-          formula: 'nal-core',
+          name: 'Sync & Build: ffmpeg',
+          formula: 'ffmpeg',
           status: 'in_progress',
           conclusion: null,
           actor: 'jaewook (Authentik)',
@@ -127,7 +127,7 @@ export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
         {
           id: 900,
           name: 'Scheduled Tap Sync',
-          formula: 'caddy-nal',
+          formula: 'tmux',
           status: 'completed',
           conclusion: 'success',
           actor: 'Scheduled Cron',

@@ -44,7 +44,7 @@ export function Header({
             </div>
             <div>
               <h1 className="text-base font-bold text-slate-100 flex items-center gap-1.5 leading-none">
-                jaewoook<span className="text-slate-500">/</span>homebrew-nal
+                Jaewoook<span className="text-slate-500">/</span>homebrew-nal
               </h1>
               <span className="text-[11px] text-slate-400">NAL Homelab macOS & Linux Tap</span>
             </div>

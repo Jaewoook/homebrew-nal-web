@@ -95,7 +95,7 @@ export default function HomePage() {
                 </div>
                 <div className="flex items-center gap-2 text-xs">
                   <a
-                    href="https://github.com/jaewoook/homebrew-nal"
+                    href="https://github.com/Jaewoook/homebrew-nal"
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
@@ -132,12 +132,12 @@ export default function HomePage() {
           </span>
           <div className="flex items-center gap-3">
             <a
-              href="https://github.com/jaewoook/homebrew-nal"
+              href="https://github.com/Jaewoook/homebrew-nal"
               target="_blank"
               rel="noreferrer"
               className="hover:text-slate-300 transition-colors"
             >
-              jaewoook/homebrew-nal
+              Jaewoook/homebrew-nal
             </a>
             <span>&bull;</span>
             <a

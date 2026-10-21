@@ -1,7 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Copy, Check, ExternalLink, Package, ArrowUpRight, Loader2, Sparkles } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  ExternalLink,
+  Package,
+  ArrowUpRight,
+  Loader2,
+  Sparkles,
+  Download,
+  Tag,
+  Calendar,
+} from 'lucide-react';
 import { Formula } from '@/types/formula';
 
 interface FormulaCardProps {
@@ -10,6 +23,18 @@ interface FormulaCardProps {
   isBuilding?: boolean;
   onDispatchSuccess?: (formulaName: string) => void;
   onSessionExpired?: () => void;
+}
+
+function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
 export function FormulaCard({
@@ -25,6 +50,7 @@ export function FormulaCard({
   const [dispatched, setDispatched] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const displayVersion = formula.fullVersion || formula.version;
   const installCommand = `brew install jaewoook/nal/${formula.name}`;
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -98,7 +124,7 @@ export function FormulaCard({
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-slate-100 text-base">{formula.name}</span>
               <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
-                v{formula.version}
+                v{displayVersion}
               </span>
 
               {formula.upstreamVersion && formula.hasUpdate && (
@@ -110,7 +136,7 @@ export function FormulaCard({
 
               {formula.hasBottle && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                  Bottle
+                  Bottle{formula.bottlePlatform ? `: ${formula.bottlePlatform}` : ''}
                 </span>
               )}
 
@@ -191,6 +217,72 @@ export function FormulaCard({
             )}
           </div>
 
+          {/* Release & Precompiled Bottle Asset */}
+          {(formula.releaseTag || formula.bottleUrl) && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-3 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Tag className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-xs font-semibold text-slate-200">GitHub Release:</span>
+                  {formula.releaseUrl ? (
+                    <a
+                      href={formula.releaseUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-mono text-xs text-blue-400 hover:underline flex items-center gap-1"
+                    >
+                      {formula.releaseTag}
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span className="font-mono text-xs text-slate-300">{formula.releaseTag}</span>
+                  )}
+                </div>
+
+                {formula.publishedAt && (
+                  <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>
+                      {new Date(formula.publishedAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {formula.bottleUrl && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-300">Precompiled Bottle:</span>
+                    {formula.bottlePlatform && (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                        {formula.bottlePlatform}
+                      </span>
+                    )}
+                    {formula.bottleSize && (
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {formatBytes(formula.bottleSize)}
+                      </span>
+                    )}
+                  </div>
+
+                  <a
+                    href={formula.bottleUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-emerald-400 hover:text-emerald-300 border border-slate-700/60 transition-colors w-fit"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Bottle</span>
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Install Command Snippet */}
           <div className="bg-slate-950 border border-slate-800 rounded p-2.5 flex items-center justify-between font-mono text-xs text-emerald-400">
             <span className="truncate">{installCommand}</span>
@@ -212,7 +304,7 @@ export function FormulaCard({
                     Request Sync & Build (NAL User)
                   </div>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Triggers <code>sync-upstream.yml</code> on <code>jaewoook/homebrew-nal</code> to compile on your NAL runner.
+                    Triggers <code>sync-upstream.yml</code> on <code>Jaewoook/homebrew-nal</code> to compile on your NAL runner.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

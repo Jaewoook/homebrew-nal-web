@@ -74,4 +74,30 @@ describe('FormulaCard Component', () => {
     render(<FormulaCard formula={sampleFormula} isAuthenticated={false} />);
     expect(screen.getByText(/Upstream: v1.4.3/i)).toBeDefined();
   });
+
+  it('renders release tag and bottle download button when release metadata is present', () => {
+    const formulaWithRelease = {
+      ...sampleFormula,
+      name: 'ffmpeg',
+      version: '9.0.2',
+      fullVersion: '9.0.2_1',
+      releaseTag: 'ffmpeg.9.0.2_1',
+      releaseUrl: 'https://github.com/Jaewoook/homebrew-nal/releases/tag/ffmpeg.9.0.2_1',
+      bottleUrl: 'https://github.com/Jaewoook/homebrew-nal/releases/download/ffmpeg.9.0.2_1/ffmpeg-9.0.2_1.sequoia.bottle.1.tar.gz',
+      bottleFilename: 'ffmpeg-9.0.2_1.sequoia.bottle.1.tar.gz',
+      bottleSize: 22173600,
+      bottlePlatform: 'sequoia',
+      publishedAt: '2026-10-14T16:41:32Z',
+    };
+
+    render(<FormulaCard formula={formulaWithRelease} isAuthenticated={false} />);
+    fireEvent.click(screen.getByText('ffmpeg'));
+
+    expect(screen.getByText('ffmpeg.9.0.2_1')).toBeDefined();
+    const downloadLink = screen.getByRole('link', { name: /Download Bottle/i });
+    expect(downloadLink).toBeDefined();
+    expect(downloadLink.getAttribute('href')).toBe(formulaWithRelease.bottleUrl);
+    expect(screen.getByText(/21\.1 MB/i)).toBeDefined();
+    expect(screen.getAllByText(/sequoia/i).length).toBeGreaterThanOrEqual(1);
+  });
 });

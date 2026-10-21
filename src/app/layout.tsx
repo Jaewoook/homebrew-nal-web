@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'jaewoook/homebrew-nal | NAL Homelab Tap',
-  description: 'Formula registry, documentation, and build management for jaewoook/homebrew-nal tap.',
+  title: 'Jaewoook/homebrew-nal | NAL Homelab Tap',
+  description: 'Formula registry, documentation, and build management for Jaewoook/homebrew-nal tap.',
 };
 
 export default function RootLayout({
