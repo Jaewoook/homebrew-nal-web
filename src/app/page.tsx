@@ -61,6 +61,16 @@ export default function HomePage() {
 
   useEffect(() => {
     loadData();
+
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const authError = urlParams.get('auth_error');
+      if (authError) {
+        setToastMsg(`Authentication failed: ${decodeURIComponent(authError)}`);
+        window.history.replaceState({}, '', window.location.pathname);
+        setTimeout(() => setToastMsg(null), 6000);
+      }
+    }
   }, []);
 
   const handleDispatchSuccess = (formulaName: string) => {

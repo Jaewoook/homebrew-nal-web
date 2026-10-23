@@ -46,7 +46,7 @@ export function verifySignedSessionCookie(cookieValue: string): UserSession | nu
 }
 
 export function extractUserFromHeaders(headers: Headers): UserSession | null {
-  // 1. Direct proxy mock headers - ONLY in development / test mode
+  // 1. Direct mock headers - ONLY in development / test mode
   if (process.env.NODE_ENV !== 'production') {
     const mockUser = headers.get('x-mock-user');
     if (mockUser) {
@@ -57,16 +57,7 @@ export function extractUserFromHeaders(headers: Headers): UserSession | null {
     }
   }
 
-  // 2. Authentik Forward-Auth proxy headers (from Traefik / Caddy Authentik outpost)
-  const authentikUser = headers.get('x-authentik-username') || headers.get('x-forwarded-user');
-  if (authentikUser) {
-    return {
-      name: authentikUser,
-      email: headers.get('x-authentik-email') || null,
-    };
-  }
-
-  // 3. Cryptographically verified session cookie
+  // 2. Cryptographically verified session cookie (issued via OIDC flow)
   const cookieHeader = headers.get('cookie');
   if (cookieHeader) {
     const match = cookieHeader.match(/nal_session=([^;]+)/);
