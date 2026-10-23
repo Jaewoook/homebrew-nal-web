@@ -101,7 +101,7 @@ export function Header({
             </button>
           </nav>
 
-          <UserStatus initialUser={user} onUserChange={onUserChange} />
+          <UserStatus user={user} onUserChange={onUserChange} />
         </div>
       </div>
     </header>
