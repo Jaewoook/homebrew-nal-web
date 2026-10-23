@@ -105,7 +105,7 @@ export async function GET(request: Request) {
   response.cookies.set('nal_session', sessionToken, {
     httpOnly: true,
     path: '/',
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 18 * 60 * 60, // 18 hours
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
   });

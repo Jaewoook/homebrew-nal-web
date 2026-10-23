@@ -199,7 +199,7 @@ describe('Authentication API Routes', () => {
       const res = await sessionHandler(req);
       expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data.user).toEqual(user);
+      expect(data.user).toMatchObject(user);
     });
 
     it('does not accept unverified forward-auth headers in production', async () => {

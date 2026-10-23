@@ -31,6 +31,18 @@ describe('Auth Session Verification & Signing', () => {
     expect(extracted?.name).toBe('jaewook');
   });
 
+  it('creates signed session cookie with default 18 hours expiration', () => {
+    const user = { name: 'jaewook', email: 'jaewook@nal.local' };
+    const cookie = createSignedSessionCookie(user);
+    const headers = new Headers({ cookie: `nal_session=${cookie}` });
+    const extracted = extractUserFromHeaders(headers);
+
+    expect(extracted).not.toBeNull();
+    expect(extracted?.iat).toBeDefined();
+    expect(extracted?.exp).toBeDefined();
+    expect((extracted!.exp!) - (extracted!.iat!)).toBe(18 * 60 * 60);
+  });
+
   it('rejects tampered or unsigned session cookies', () => {
     // Unsigned base64 JSON
     const unsigned = Buffer.from(JSON.stringify({ name: 'attacker' })).toString('base64');
@@ -41,6 +53,17 @@ describe('Auth Session Verification & Signing', () => {
     const tampered = `${unsigned}.invalidsignature12345`;
     const headers2 = new Headers({ cookie: `nal_session=${tampered}` });
     expect(extractUserFromHeaders(headers2)).toBeNull();
+  });
+
+  it('rejects expired session cookies based on exp timestamp', () => {
+    const expiredUser = {
+      name: 'jaewook',
+      email: 'jaewook@nal.local',
+      exp: Math.floor(Date.now() / 1000) - 10,
+    };
+    const expiredCookie = createSignedSessionCookie(expiredUser);
+    const headers = new Headers({ cookie: `nal_session=${expiredCookie}` });
+    expect(extractUserFromHeaders(headers)).toBeNull();
   });
 
   it('validates session from request cookie', async () => {

@@ -4,6 +4,8 @@ export interface UserSession {
   name: string;
   email?: string | null;
   image?: string | null;
+  iat?: number;
+  exp?: number;
 }
 
 function getSecretKey(): string {
@@ -14,8 +16,14 @@ function getSecretKey(): string {
   return secret || 'nal-fallback-secret-key-32-chars-long';
 }
 
-export function createSignedSessionCookie(user: UserSession): string {
-  const data = Buffer.from(JSON.stringify(user)).toString('base64url');
+export function createSignedSessionCookie(user: UserSession, maxAgeSeconds: number = 18 * 60 * 60): string {
+  const now = Math.floor(Date.now() / 1000);
+  const sessionData: UserSession = {
+    ...user,
+    iat: user.iat ?? now,
+    exp: user.exp ?? now + maxAgeSeconds,
+  };
+  const data = Buffer.from(JSON.stringify(sessionData)).toString('base64url');
   const signature = crypto
     .createHmac('sha256', getSecretKey())
     .update(data)
@@ -41,6 +49,10 @@ export function verifySignedSessionCookie(cookieValue: string): UserSession | nu
     const jsonStr = Buffer.from(data, 'base64url').toString('utf-8');
     const user = JSON.parse(jsonStr) as UserSession;
     if (user && user.name) {
+      // Enforce cryptographic expiration check
+      if (typeof user.exp === 'number' && Math.floor(Date.now() / 1000) > user.exp) {
+        return null;
+      }
       return user;
     }
   } catch {
