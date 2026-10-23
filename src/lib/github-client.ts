@@ -91,7 +91,27 @@ export function correlateRunActor(
   return { actor: run.event || 'Unknown', formula: titleFormula };
 }
 
-export async function dispatchSyncWorkflow(formula: string): Promise<{ success: boolean; error?: string }> {
+let workflowRunsCache: { runs: WorkflowRun[]; timestamp: number } | null = null;
+const WORKFLOW_RUNS_CACHE_TTL_MS = 8 * 1000; // 8 seconds TTL
+
+export function clearWorkflowRunsCache(): void {
+  workflowRunsCache = null;
+}
+
+export interface SyncWorkflowOptions {
+  force?: boolean;
+  with_deps?: boolean;
+}
+
+export async function dispatchSyncWorkflow(
+  formula: string,
+  options?: SyncWorkflowOptions
+): Promise<{ success: boolean; error?: string }> {
+  const trimmedFormula = formula?.trim();
+  if (!trimmedFormula) {
+    return { success: false, error: 'Formula is required to trigger sync workflow' };
+  }
+
   const token = getGithubToken();
   if (!token) {
     return { success: false, error: 'GitHub Token is not configured' };
@@ -100,6 +120,12 @@ export async function dispatchSyncWorkflow(formula: string): Promise<{ success: 
   const owner = getRepoOwner();
   const repo = getRepoName();
   const workflow = getSyncWorkflow();
+
+  const inputs: Record<string, any> = {
+    formulas: trimmedFormula,
+    force: Boolean(options?.force),
+    with_deps: Boolean(options?.with_deps),
+  };
 
   try {
     const res = await fetch(
@@ -113,12 +139,13 @@ export async function dispatchSyncWorkflow(formula: string): Promise<{ success: 
         },
         body: JSON.stringify({
           ref: 'main',
-          inputs: { formula },
+          inputs,
         }),
       }
     );
 
     if (res.status === 204 || res.status === 200 || res.status === 202) {
+      clearWorkflowRunsCache();
       return { success: true };
     }
 
@@ -129,7 +156,12 @@ export async function dispatchSyncWorkflow(formula: string): Promise<{ success: 
   }
 }
 
-export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
+export async function getWorkflowRuns(forceRefresh = false): Promise<WorkflowRun[]> {
+  const now = Date.now();
+  if (!forceRefresh && workflowRunsCache && now - workflowRunsCache.timestamp < WORKFLOW_RUNS_CACHE_TTL_MS) {
+    return workflowRunsCache.runs;
+  }
+
   const recentDispatches = getRecentDispatches(20);
   const token = getGithubToken();
   const owner = getRepoOwner();
@@ -156,7 +188,7 @@ export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
     throw new Error('Invalid response format from GitHub Actions API');
   }
 
-  return data.workflow_runs.map((run: any) => {
+  const runs: WorkflowRun[] = data.workflow_runs.map((run: any) => {
     const { actor, formula } = correlateRunActor(run, recentDispatches);
     const duration = formatRunDuration(
       run.run_started_at || run.created_at,
@@ -175,4 +207,7 @@ export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
       created_at: run.created_at,
     };
   });
+
+  workflowRunsCache = { runs, timestamp: now };
+  return runs;
 }

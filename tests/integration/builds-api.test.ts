@@ -5,6 +5,7 @@ import { GET as formulasHandler } from '@/app/api/formulas/route';
 import { initDatabase } from '@/lib/dispatch-store';
 import { resetRateLimiter } from '@/lib/rate-limiter';
 import { createSignedSessionCookie } from '@/lib/auth';
+import { clearWorkflowRunsCache } from '@/lib/github-client';
 
 describe('Builds and Formulas API Routes', () => {
   let authCookie: string;
@@ -16,6 +17,7 @@ describe('Builds and Formulas API Routes', () => {
     authCookie = `nal_session=${createSignedSessionCookie({ name: 'jaewook', email: 'jaewook@nal.local' })}`;
     initDatabase(':memory:');
     resetRateLimiter();
+    clearWorkflowRunsCache();
     vi.restoreAllMocks();
   });
 
@@ -39,10 +41,27 @@ describe('Builds and Formulas API Routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects path traversal and flag injections with 400', async () => {
+    const makeBadReq = (formula: string) =>
+      new Request('http://localhost:3000/api/builds/dispatch', {
+        method: 'POST',
+        body: JSON.stringify({ formula }),
+        headers: { 'Content-Type': 'application/json', cookie: authCookie },
+      });
+
+    const res1 = await dispatchHandler(makeBadReq('..'));
+    expect(res1.status).toBe(400);
+
+    const res2 = await dispatchHandler(makeBadReq('-f'));
+    expect(res2.status).toBe(400);
+  });
+
   it('accepts valid dispatch request and records attribution in SQLite', async () => {
     process.env.GITHUB_TOKEN = 'test-token-123';
-    vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+    let dispatchedBody: any = null;
+    vi.spyOn(global, 'fetch').mockImplementation(async (url: any, init?: any) => {
       if (String(url).includes('/dispatches')) {
+        dispatchedBody = JSON.parse(init?.body || '{}');
         return { ok: true, status: 204 } as Response;
       }
       return { ok: true, status: 200, json: async () => ({}) } as Response;
@@ -50,7 +69,7 @@ describe('Builds and Formulas API Routes', () => {
 
     const req = new Request('http://localhost:3000/api/builds/dispatch', {
       method: 'POST',
-      body: JSON.stringify({ formula: 'ffmpeg-nal' }),
+      body: JSON.stringify({ formula: 'ffmpeg-nal', force: true, with_deps: true }),
       headers: {
         'Content-Type': 'application/json',
         cookie: authCookie,
@@ -63,6 +82,11 @@ describe('Builds and Formulas API Routes', () => {
     expect(data.success).toBe(true);
     expect(data.formula).toBe('ffmpeg-nal');
     expect(data.requested_by).toBe('jaewook');
+    expect(dispatchedBody.inputs).toEqual({
+      formulas: 'ffmpeg-nal',
+      force: true,
+      with_deps: true,
+    });
   });
 
   it('returns 502 when GitHub Actions workflow dispatch fails', async () => {

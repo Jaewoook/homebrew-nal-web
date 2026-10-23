@@ -49,6 +49,8 @@ export function FormulaCard({
   const [dispatching, setDispatching] = useState(false);
   const [dispatched, setDispatched] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [forceSync, setForceSync] = useState(false);
+  const [withDeps, setWithDeps] = useState(false);
 
   const displayVersion = formula.fullVersion || formula.version;
   const installCommand = `brew install jaewoook/nal/${formula.name}`;
@@ -73,7 +75,11 @@ export function FormulaCard({
       const res = await fetch('/api/builds/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formula: formula.name }),
+        body: JSON.stringify({
+          formula: formula.name,
+          force: forceSync,
+          with_deps: withDeps,
+        }),
       });
 
       if (res.status === 401) {
@@ -297,17 +303,44 @@ export function FormulaCard({
           {/* Action Trigger Box */}
           <div className="pt-2 border-t border-slate-800/60">
             {isAuthenticated ? (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-blue-950/30 border border-blue-900/40 rounded-lg p-3">
-                <div>
-                  <div className="text-xs font-semibold text-blue-200 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                    Request Sync & Build (NAL User)
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-blue-950/30 border border-blue-900/40 rounded-lg p-3">
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-xs font-semibold text-blue-200 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                      Request Sync & Build (NAL User)
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Triggers <code>sync-upstream.yml</code> on <code>Jaewoook/homebrew-nal</code> to compile on your NAL runner.
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Triggers <code>sync-upstream.yml</code> on <code>Jaewoook/homebrew-nal</code> to compile on your NAL runner.
-                  </p>
+
+                  {/* Additional parameters: force & with_deps */}
+                  <div className="flex items-center gap-4 text-[11px] text-slate-300">
+                    <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-100 select-none">
+                      <input
+                        type="checkbox"
+                        checked={forceSync}
+                        onChange={(e) => setForceSync(e.target.checked)}
+                        disabled={isButtonDisabled}
+                        className="rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer disabled:opacity-50"
+                      />
+                      <span>Force sync</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-100 select-none">
+                      <input
+                        type="checkbox"
+                        checked={withDeps}
+                        onChange={(e) => setWithDeps(e.target.checked)}
+                        disabled={isButtonDisabled}
+                        className="rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer disabled:opacity-50"
+                      />
+                      <span>Resolve dependencies</span>
+                    </label>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-2 self-end sm:self-auto">
                   <button
                     onClick={handleDispatch}
                     disabled={isButtonDisabled}

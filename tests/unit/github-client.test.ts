@@ -4,10 +4,12 @@ import {
   correlateRunActor,
   getWorkflowRuns,
   dispatchSyncWorkflow,
+  clearWorkflowRunsCache,
 } from '@/lib/github-client';
 
 describe('GitHub Client Utilities', () => {
   beforeEach(() => {
+    clearWorkflowRunsCache();
     vi.restoreAllMocks();
   });
 
@@ -106,6 +108,11 @@ describe('GitHub Client Utilities', () => {
     expect(runs[0].status).toBe('completed');
     expect(runs[0].conclusion).toBe('success');
     expect(runs[0].duration).toBe('9s');
+
+    // Subsequent call within cache TTL returns cached data without calling fetch again
+    const cachedRuns = await getWorkflowRuns();
+    expect(cachedRuns).toEqual(runs);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('throws an error when GitHub API fails or is unavailable instead of returning mock runs', async () => {
@@ -153,7 +160,39 @@ describe('GitHub Client Utilities', () => {
       expect(result.success).toBe(true);
       expect(requestedUrl).toContain('/actions/workflows/sync-upstream.yml/dispatches');
       expect(requestHeaders['Authorization']).toBe('Bearer test-token-123');
-      expect(requestBody.inputs).toEqual({ formula: 'ffmpeg-nal' });
+      expect(requestBody.inputs).toEqual({
+        formulas: 'ffmpeg-nal',
+        force: false,
+        with_deps: false,
+      });
+      expect(requestBody.inputs).not.toHaveProperty('formula');
+    } finally {
+      if (originalToken) {
+        process.env.GITHUB_TOKEN = originalToken;
+      } else {
+        delete process.env.GITHUB_TOKEN;
+      }
+    }
+  });
+
+  it('dispatchSyncWorkflow passes force and with_deps options when provided', async () => {
+    const originalToken = process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = 'test-token-123';
+    let requestBody: any = {};
+
+    vi.spyOn(global, 'fetch').mockImplementation(async (url: any, init?: any) => {
+      requestBody = JSON.parse(init?.body || '{}');
+      return { status: 204, ok: true } as Response;
+    });
+
+    try {
+      const result = await dispatchSyncWorkflow('ffmpeg-nal', { force: true, with_deps: true });
+      expect(result.success).toBe(true);
+      expect(requestBody.inputs).toEqual({
+        formulas: 'ffmpeg-nal',
+        force: true,
+        with_deps: true,
+      });
     } finally {
       if (originalToken) {
         process.env.GITHUB_TOKEN = originalToken;
@@ -183,5 +222,13 @@ describe('GitHub Client Utilities', () => {
         delete process.env.GITHUB_TOKEN;
       }
     }
+  });
+
+  it('dispatchSyncWorkflow prevents trigger when formula is empty', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch');
+    const result = await dispatchSyncWorkflow('   ');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Formula is required');
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

@@ -4,7 +4,7 @@ import { recordDispatch } from '@/lib/dispatch-store';
 import { dispatchSyncWorkflow } from '@/lib/github-client';
 import { checkRateLimit } from '@/lib/rate-limiter';
 
-const FORMULA_REGEX = /^[a-zA-Z0-9_.\-]+$/;
+const FORMULA_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9+@._-]{0,63}$/;
 
 export async function POST(request: Request) {
   const user = await validateSession(request);
@@ -38,7 +38,14 @@ export async function POST(request: Request) {
   }
 
   const formula = body?.formula;
-  if (!formula || typeof formula !== 'string' || !FORMULA_REGEX.test(formula)) {
+  if (
+    !formula ||
+    typeof formula !== 'string' ||
+    !FORMULA_REGEX.test(formula) ||
+    formula.includes('..') ||
+    formula.includes('/') ||
+    formula.includes('\\')
+  ) {
     return NextResponse.json(
       { error: 'Invalid formula name', message: 'Formula name contains invalid characters.' },
       { status: 400 }
@@ -46,7 +53,9 @@ export async function POST(request: Request) {
   }
 
   // 2. Dispatch GitHub Actions workflow first
-  const result = await dispatchSyncWorkflow(formula);
+  const force = Boolean(body?.force);
+  const with_deps = Boolean(body?.with_deps || body?.withDeps);
+  const result = await dispatchSyncWorkflow(formula, { force, with_deps });
   if (!result.success) {
     return NextResponse.json(
       { error: 'Dispatch failed', message: result.error },
