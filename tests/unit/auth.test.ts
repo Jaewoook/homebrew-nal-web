@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { extractUserFromHeaders, validateSession, createSignedSessionCookie } from '@/lib/auth';
+import {
+  extractUserFromHeaders,
+  validateSession,
+  createSignedSessionCookie,
+  getRequestOrigin,
+} from '@/lib/auth';
 
 describe('Auth Session Verification & Signing', () => {
   beforeEach(() => {
@@ -7,21 +12,10 @@ describe('Auth Session Verification & Signing', () => {
     process.env.NODE_ENV = 'development';
   });
 
-  it('extracts user from mock headers in development mode', () => {
-    process.env.NODE_ENV = 'development';
+  it('ignores arbitrary unauthenticated headers (no mock header bypasses)', () => {
     const headers = new Headers({
       'x-mock-user': 'jaewook',
       'x-mock-email': 'jaewook@nal.local',
-    });
-    const user = extractUserFromHeaders(headers);
-    expect(user).not.toBeNull();
-    expect(user?.name).toBe('jaewook');
-  });
-
-  it('rejects mock headers when not in development', () => {
-    process.env.NODE_ENV = 'production';
-    const headers = new Headers({
-      'x-mock-user': 'attacker',
     });
     const user = extractUserFromHeaders(headers);
     expect(user).toBeNull();
@@ -49,17 +43,34 @@ describe('Auth Session Verification & Signing', () => {
     expect(extractUserFromHeaders(headers2)).toBeNull();
   });
 
-  it('validates session from request', async () => {
-    process.env.NODE_ENV = 'development';
+  it('validates session from request cookie', async () => {
+    const cookie = createSignedSessionCookie({ name: 'jaewook', email: 'jaewook@nal.local' });
     const reqWithAuth = new Request('http://localhost:3000/api/test', {
-      headers: { 'x-mock-user': 'jaewook' },
+      headers: { cookie: `nal_session=${cookie}` },
     });
     const session = await validateSession(reqWithAuth);
     expect(session).not.toBeNull();
     expect(session?.name).toBe('jaewook');
+    expect(session?.email).toBe('jaewook@nal.local');
 
     const reqWithoutAuth = new Request('http://localhost:3000/api/test');
     const emptySession = await validateSession(reqWithoutAuth);
     expect(emptySession).toBeNull();
+  });
+
+  it('throws in production when NEXTAUTH_SECRET is not configured', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.NEXTAUTH_SECRET;
+    expect(() => createSignedSessionCookie({ name: 'jaewook' })).toThrow(/NEXTAUTH_SECRET is required/);
+  });
+
+  it('correctly resolves origin from NEXTAUTH_URL or request fallback', () => {
+    process.env.NEXTAUTH_URL = 'https://brew.jaewook.dev';
+    const req1 = new Request('https://brew.jaewook.dev/api/auth/login');
+    expect(getRequestOrigin(req1)).toBe('https://brew.jaewook.dev');
+
+    delete process.env.NEXTAUTH_URL;
+    const req2 = new Request('http://localhost:3000/api/auth/login');
+    expect(getRequestOrigin(req2)).toBe('http://localhost:3000');
   });
 });

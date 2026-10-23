@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { getOidcEndpoints, getRequestOrigin } from '@/lib/auth';
 
 export async function GET(request: Request) {
-  const reqUrl = new URL(request.url);
-  const origin = process.env.NEXTAUTH_URL
-    ? process.env.NEXTAUTH_URL.replace(/\/+$/, '')
-    : reqUrl.origin;
+  const origin = getRequestOrigin(request);
 
   const issuer = process.env.AUTHENTIK_ISSUER?.replace(/\/+$/, '');
   const clientId = process.env.AUTHENTIK_CLIENT_ID;
@@ -27,7 +25,8 @@ export async function GET(request: Request) {
   const redirectUri = `${origin}/api/auth/callback`;
   const state = crypto.randomUUID();
 
-  const authUrl = new URL(`${issuer}/authorize`);
+  const endpoints = await getOidcEndpoints(issuer);
+  const authUrl = new URL(endpoints.authorizationEndpoint);
   authUrl.searchParams.set('client_id', clientId);
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('response_type', 'code');

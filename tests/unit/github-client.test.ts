@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { formatRunDuration, correlateRunActor, getWorkflowRuns } from '@/lib/github-client';
+import {
+  formatRunDuration,
+  correlateRunActor,
+  getWorkflowRuns,
+  dispatchSyncWorkflow,
+} from '@/lib/github-client';
 
 describe('GitHub Client Utilities', () => {
   beforeEach(() => {
@@ -111,5 +116,72 @@ describe('GitHub Client Utilities', () => {
     } as Response);
 
     await expect(getWorkflowRuns()).rejects.toThrow(/GitHub API error/i);
+  });
+
+  it('dispatchSyncWorkflow fails if GITHUB_TOKEN is not configured', async () => {
+    const originalToken = process.env.GITHUB_TOKEN;
+    const originalPat = process.env.GITHUB_PAT;
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.GITHUB_PAT;
+
+    try {
+      const result = await dispatchSyncWorkflow('ffmpeg-nal');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('GitHub Token is not configured');
+    } finally {
+      if (originalToken) process.env.GITHUB_TOKEN = originalToken;
+      if (originalPat) process.env.GITHUB_PAT = originalPat;
+    }
+  });
+
+  it('dispatchSyncWorkflow sends dispatch POST request with auth bearer token', async () => {
+    const originalToken = process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = 'test-token-123';
+    let requestedUrl = '';
+    let requestHeaders: any = {};
+    let requestBody: any = {};
+
+    vi.spyOn(global, 'fetch').mockImplementation(async (url: any, init?: any) => {
+      requestedUrl = String(url);
+      requestHeaders = init?.headers;
+      requestBody = JSON.parse(init?.body || '{}');
+      return { status: 204, ok: true } as Response;
+    });
+
+    try {
+      const result = await dispatchSyncWorkflow('ffmpeg-nal');
+      expect(result.success).toBe(true);
+      expect(requestedUrl).toContain('/actions/workflows/sync-upstream.yml/dispatches');
+      expect(requestHeaders['Authorization']).toBe('Bearer test-token-123');
+      expect(requestBody.inputs).toEqual({ formula: 'ffmpeg-nal' });
+    } finally {
+      if (originalToken) {
+        process.env.GITHUB_TOKEN = originalToken;
+      } else {
+        delete process.env.GITHUB_TOKEN;
+      }
+    }
+  });
+
+  it('dispatchSyncWorkflow handles GitHub API failure response', async () => {
+    const originalToken = process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = 'test-token-123';
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      status: 403,
+      ok: false,
+      text: async () => 'Resource not accessible by personal access token',
+    } as Response);
+
+    try {
+      const result = await dispatchSyncWorkflow('ffmpeg-nal');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Resource not accessible');
+    } finally {
+      if (originalToken) {
+        process.env.GITHUB_TOKEN = originalToken;
+      } else {
+        delete process.env.GITHUB_TOKEN;
+      }
+    }
   });
 });

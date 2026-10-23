@@ -4,9 +4,16 @@ import { GET as buildsHandler } from '@/app/api/builds/route';
 import { GET as formulasHandler } from '@/app/api/formulas/route';
 import { initDatabase } from '@/lib/dispatch-store';
 import { resetRateLimiter } from '@/lib/rate-limiter';
+import { createSignedSessionCookie } from '@/lib/auth';
 
 describe('Builds and Formulas API Routes', () => {
+  let authCookie: string;
+
   beforeEach(() => {
+    process.env.NEXTAUTH_SECRET = 'test-secret-key-32-chars-long-12345';
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.GITHUB_PAT;
+    authCookie = `nal_session=${createSignedSessionCookie({ name: 'jaewook', email: 'jaewook@nal.local' })}`;
     initDatabase(':memory:');
     resetRateLimiter();
     vi.restoreAllMocks();
@@ -26,20 +33,27 @@ describe('Builds and Formulas API Routes', () => {
     const req = new Request('http://localhost:3000/api/builds/dispatch', {
       method: 'POST',
       body: JSON.stringify({ formula: '../../bad-path' }),
-      headers: { 'Content-Type': 'application/json', 'x-mock-user': 'jaewook' },
+      headers: { 'Content-Type': 'application/json', cookie: authCookie },
     });
     const res = await dispatchHandler(req);
     expect(res.status).toBe(400);
   });
 
   it('accepts valid dispatch request and records attribution in SQLite', async () => {
+    process.env.GITHUB_TOKEN = 'test-token-123';
+    vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+      if (String(url).includes('/dispatches')) {
+        return { ok: true, status: 204 } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+
     const req = new Request('http://localhost:3000/api/builds/dispatch', {
       method: 'POST',
       body: JSON.stringify({ formula: 'ffmpeg-nal' }),
       headers: {
         'Content-Type': 'application/json',
-        'x-mock-user': 'jaewook',
-        'x-mock-email': 'jaewook@nal.local',
+        cookie: authCookie,
       },
     });
 
@@ -51,14 +65,46 @@ describe('Builds and Formulas API Routes', () => {
     expect(data.requested_by).toBe('jaewook');
   });
 
+  it('returns 502 when GitHub Actions workflow dispatch fails', async () => {
+    process.env.GITHUB_TOKEN = 'test-token-123';
+    vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+      if (String(url).includes('/dispatches')) {
+        return { ok: false, status: 403, text: async () => 'Resource not accessible' } as Response;
+      }
+      return { ok: false, status: 404 } as Response;
+    });
+
+    const req = new Request('http://localhost:3000/api/builds/dispatch', {
+      method: 'POST',
+      body: JSON.stringify({ formula: 'ffmpeg-nal' }),
+      headers: {
+        'Content-Type': 'application/json',
+        cookie: authCookie,
+      },
+    });
+
+    const res = await dispatchHandler(req);
+    expect(res.status).toBe(502);
+    const data = await res.json();
+    expect(data.error).toBe('Dispatch failed');
+  });
+
   it('enforces rate limit of 3 dispatches per user and returns 429', async () => {
+    process.env.GITHUB_TOKEN = 'test-token-123';
+    vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+      if (String(url).includes('/dispatches')) {
+        return { ok: true, status: 204 } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+
     const makeReq = () =>
       new Request('http://localhost:3000/api/builds/dispatch', {
         method: 'POST',
         body: JSON.stringify({ formula: 'ffmpeg-nal' }),
         headers: {
           'Content-Type': 'application/json',
-          'x-mock-user': 'jaewook',
+          cookie: authCookie,
         },
       });
 

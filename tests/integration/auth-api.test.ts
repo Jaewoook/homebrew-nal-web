@@ -25,7 +25,7 @@ describe('Authentication API Routes', () => {
 
       expect(res.status).toBe(307); // Redirect to Authentik
       const location = res.headers.get('location');
-      expect(location).toContain('https://auth.custom-domain.example/application/o/homebrew-nal/authorize');
+      expect(location).toContain('https://auth.custom-domain.example/application/o/authorize');
       expect(location).toContain('client_id=custom-client-id');
       expect(location).toContain('redirect_uri=https%3A%2F%2Fbrew.nal.local%2Fapi%2Fauth%2Fcallback');
       expect(location).toContain('response_type=code');

@@ -12,10 +12,21 @@ export interface WorkflowRun {
   created_at: string;
 }
 
-const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER || 'Jaewoook';
-const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME || 'homebrew-nal';
-const GITHUB_SYNC_WORKFLOW = process.env.GITHUB_SYNC_WORKFLOW || 'sync-upstream.yml';
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_PAT;
+function getGithubToken(): string | undefined {
+  return process.env.GITHUB_TOKEN || process.env.GITHUB_PAT;
+}
+
+function getRepoOwner(): string {
+  return process.env.GITHUB_REPO_OWNER || 'Jaewoook';
+}
+
+function getRepoName(): string {
+  return process.env.GITHUB_REPO_NAME || 'homebrew-nal';
+}
+
+function getSyncWorkflow(): string {
+  return process.env.GITHUB_SYNC_WORKFLOW || 'sync-upstream.yml';
+}
 
 export function formatRunDuration(startTime: string, endTime?: string): string {
   const start = new Date(startTime).getTime();
@@ -81,19 +92,23 @@ export function correlateRunActor(
 }
 
 export async function dispatchSyncWorkflow(formula: string): Promise<{ success: boolean; error?: string }> {
-  if (!GITHUB_TOKEN) {
-    console.info(`[Mock GHA] Dispatched ${GITHUB_SYNC_WORKFLOW} for formula: ${formula}`);
-    return { success: true };
+  const token = getGithubToken();
+  if (!token) {
+    return { success: false, error: 'GitHub Token is not configured' };
   }
+
+  const owner = getRepoOwner();
+  const repo = getRepoName();
+  const workflow = getSyncWorkflow();
 
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/actions/workflows/${GITHUB_SYNC_WORKFLOW}/dispatches`,
+      `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/dispatches`,
       {
         method: 'POST',
         headers: {
           Accept: 'application/vnd.github.v3+json',
-          Authorization: `Bearer ${GITHUB_TOKEN}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -116,16 +131,19 @@ export async function dispatchSyncWorkflow(formula: string): Promise<{ success: 
 
 export async function getWorkflowRuns(): Promise<WorkflowRun[]> {
   const recentDispatches = getRecentDispatches(20);
+  const token = getGithubToken();
+  const owner = getRepoOwner();
+  const repo = getRepoName();
 
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
   };
-  if (GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${GITHUB_TOKEN}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const res = await fetch(
-    `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/actions/runs?per_page=30`,
+    `https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=30`,
     { headers }
   );
 

@@ -7,7 +7,11 @@ export interface UserSession {
 }
 
 function getSecretKey(): string {
-  return process.env.NEXTAUTH_SECRET || 'nal-fallback-secret-key-32-chars-long';
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('NEXTAUTH_SECRET is required in production environment');
+  }
+  return secret || 'nal-fallback-secret-key-32-chars-long';
 }
 
 export function createSignedSessionCookie(user: UserSession): string {
@@ -46,18 +50,7 @@ export function verifySignedSessionCookie(cookieValue: string): UserSession | nu
 }
 
 export function extractUserFromHeaders(headers: Headers): UserSession | null {
-  // 1. Direct mock headers - ONLY in development / test mode
-  if (process.env.NODE_ENV !== 'production') {
-    const mockUser = headers.get('x-mock-user');
-    if (mockUser) {
-      return {
-        name: mockUser,
-        email: headers.get('x-mock-email') || null,
-      };
-    }
-  }
-
-  // 2. Cryptographically verified session cookie (issued via OIDC flow)
+  // Cryptographically verified session cookie (issued via Authentik OIDC flow)
   const cookieHeader = headers.get('cookie');
   if (cookieHeader) {
     const match = cookieHeader.match(/nal_session=([^;]+)/);
@@ -67,6 +60,74 @@ export function extractUserFromHeaders(headers: Headers): UserSession | null {
   }
 
   return null;
+}
+
+export interface OidcEndpoints {
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  userinfoEndpoint: string;
+}
+
+let cachedOidcEndpoints: { issuer: string; endpoints: OidcEndpoints } | null = null;
+
+export async function getOidcEndpoints(issuerUrl: string): Promise<OidcEndpoints> {
+  const cleanIssuer = issuerUrl.replace(/\/+$/, '');
+
+  if (cachedOidcEndpoints && cachedOidcEndpoints.issuer === cleanIssuer) {
+    return cachedOidcEndpoints.endpoints;
+  }
+
+  // 1. Try standard OIDC discovery document (.well-known/openid-configuration)
+  try {
+    const discoveryUrl = `${cleanIssuer}/.well-known/openid-configuration`;
+    const res = await fetch(discoveryUrl).catch(() => null);
+    if (res && res.ok) {
+      const data = await res.json();
+      if (data.authorization_endpoint && data.token_endpoint && data.userinfo_endpoint) {
+        const endpoints: OidcEndpoints = {
+          authorizationEndpoint: data.authorization_endpoint,
+          tokenEndpoint: data.token_endpoint,
+          userinfoEndpoint: data.userinfo_endpoint,
+        };
+        cachedOidcEndpoints = { issuer: cleanIssuer, endpoints };
+        return endpoints;
+      }
+    }
+  } catch {
+    // Proceed to fallback
+  }
+
+  // 2. Authentik pattern: https://<domain>/application/o/<slug>
+  // In Authentik, /authorize, /token, and /userinfo are under /application/o/, not the slug
+  const authentikMatch = cleanIssuer.match(/^(https?:\/\/[^/]+\/application\/o)\/[^/]+$/);
+  if (authentikMatch) {
+    const base = authentikMatch[1];
+    const endpoints: OidcEndpoints = {
+      authorizationEndpoint: `${base}/authorize/`,
+      tokenEndpoint: `${base}/token/`,
+      userinfoEndpoint: `${base}/userinfo/`,
+    };
+    cachedOidcEndpoints = { issuer: cleanIssuer, endpoints };
+    return endpoints;
+  }
+
+  // 3. Generic standard fallback
+  const endpoints: OidcEndpoints = {
+    authorizationEndpoint: `${cleanIssuer}/authorize`,
+    tokenEndpoint: `${cleanIssuer}/token`,
+    userinfoEndpoint: `${cleanIssuer}/userinfo`,
+  };
+  return endpoints;
+}
+
+export function getRequestOrigin(request: Request): string {
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL.replace(/\/+$/, '');
+  }
+  const reqUrl = new URL(request.url);
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || reqUrl.host;
+  const proto = request.headers.get('x-forwarded-proto') || reqUrl.protocol.replace(':', '');
+  return `${proto}://${host}`;
 }
 
 export async function validateSession(request: Request): Promise<UserSession | null> {

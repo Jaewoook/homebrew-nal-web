@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createSignedSessionCookie } from '@/lib/auth';
+import { createSignedSessionCookie, getOidcEndpoints, getRequestOrigin } from '@/lib/auth';
 
 function getCookie(header: string | null, name: string): string | null {
   if (!header) return null;
@@ -13,9 +13,7 @@ export async function GET(request: Request) {
   const state = reqUrl.searchParams.get('state');
   const errorParam = reqUrl.searchParams.get('error');
 
-  const origin = process.env.NEXTAUTH_URL
-    ? process.env.NEXTAUTH_URL.replace(/\/+$/, '')
-    : reqUrl.origin;
+  const origin = getRequestOrigin(request);
 
   // If Authentik returned an error (e.g. user denied or cancelled), fail cleanly without signing in
   if (errorParam) {
@@ -52,6 +50,7 @@ export async function GET(request: Request) {
     );
   }
 
+  const endpoints = await getOidcEndpoints(issuer);
   const redirectUri = `${origin}/api/auth/callback`;
 
   // Exchange authorization code for tokens with configured Authentik endpoint
@@ -63,7 +62,7 @@ export async function GET(request: Request) {
     redirect_uri: redirectUri,
   });
 
-  const tokenRes = await fetch(`${issuer}/token`, {
+  const tokenRes = await fetch(endpoints.tokenEndpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -83,7 +82,7 @@ export async function GET(request: Request) {
   }
 
   // Retrieve user profile from configured Authentik userinfo endpoint
-  const userRes = await fetch(`${issuer}/userinfo`, {
+  const userRes = await fetch(endpoints.userinfoEndpoint, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
