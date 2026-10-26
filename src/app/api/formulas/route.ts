@@ -19,7 +19,12 @@ export async function GET(request: Request) {
 
   try {
     const catalog = await getFormulaCatalog(forceRefresh);
-    return NextResponse.json(catalog);
+    const headers: Record<string, string> = {
+      'Cache-Control': forceRefresh
+        ? 'no-cache, no-store'
+        : 'public, max-age=30, s-maxage=120, stale-while-revalidate=300',
+    };
+    return NextResponse.json(catalog, { headers });
   } catch (error: any) {
     return NextResponse.json(
       {

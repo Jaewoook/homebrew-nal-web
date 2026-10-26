@@ -3,6 +3,7 @@ import path from 'path';
 import { Formula, FormulaCatalog, FormulaRelease, BottleAsset } from '@/types/formula';
 import { parseFormulaRuby } from './formula-parser';
 import { checkUpstreamVersion } from './upstream-checker';
+import { getCatalogCache, saveCatalogCache } from './db';
 
 const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER || 'Jaewoook';
 const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME || 'homebrew-nal';
@@ -282,12 +283,33 @@ function loadFormulasFromLocalTap(): Formula[] {
   return [];
 }
 
-export async function getFormulaCatalog(forceRefresh = false): Promise<FormulaCatalog> {
-  const now = Date.now();
-  if (!forceRefresh && catalogCache && now - catalogCache.timestamp < CACHE_TTL_SECONDS * 1000) {
-    return catalogCache.data;
+async function loadCatalogFromDb(): Promise<{ data: FormulaCatalog; timestamp: number } | null> {
+  try {
+    const row = await getCatalogCache('current');
+    if (row && row.data) {
+      return {
+        data: JSON.parse(row.data) as FormulaCatalog,
+        timestamp: row.updated_at,
+      };
+    }
+  } catch {
+    // Non-fatal
   }
+  return null;
+}
 
+async function saveCatalogToDb(data: FormulaCatalog, timestamp: number): Promise<void> {
+  try {
+    await saveCatalogCache(JSON.stringify(data), timestamp);
+  } catch {
+    // Non-fatal
+  }
+}
+
+let isBackgroundRevalidating = false;
+
+async function refreshCatalogInternal(): Promise<FormulaCatalog> {
+  const now = Date.now();
   const formulas: Formula[] = [];
   let releasesMap: Record<string, FormulaRelease> = {};
   let fetchFailed = false;
@@ -304,7 +326,7 @@ export async function getFormulaCatalog(forceRefresh = false): Promise<FormulaCa
   if (localFormulas.length > 0) {
     formulas.push(...localFormulas);
   } else {
-    // 3. Try GitHub Contents API
+    // 3. Try GitHub Contents API with parallel batching
     try {
       const headers: Record<string, string> = {
         Accept: 'application/vnd.github.v3+json',
@@ -322,13 +344,32 @@ export async function getFormulaCatalog(forceRefresh = false): Promise<FormulaCa
         const files = (await res.json()) as Array<{ name: string; download_url: string }>;
         const rbFiles = files.filter((f) => f.name.endsWith('.rb'));
 
-        for (const file of rbFiles) {
-          const name = file.name.replace(/\.rb$/, '');
-          const fileRes = await fetch(file.download_url, { headers });
-          if (fileRes.ok) {
-            const content = await fileRes.text();
-            formulas.push(parseFormulaRuby(name, content));
-          }
+        const BATCH_SIZE = 8;
+        for (let i = 0; i < rbFiles.length; i += BATCH_SIZE) {
+          const batch = rbFiles.slice(i, i + BATCH_SIZE);
+          await Promise.all(
+            batch.map(async (file) => {
+              try {
+                const name = file.name.replace(/\.rb$/, '');
+                const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+                try {
+                  const fileRes = await fetch(file.download_url, {
+                    headers,
+                    signal: controller?.signal,
+                  });
+                  if (fileRes.ok) {
+                    const content = await fileRes.text();
+                    formulas.push(parseFormulaRuby(name, content));
+                  }
+                } finally {
+                  if (timeoutId) clearTimeout(timeoutId);
+                }
+              } catch {
+                // Ignore individual file error
+              }
+            })
+          );
         }
       } else if (res.status === 403 || res.status === 429) {
         fetchFailed = true;
@@ -362,38 +403,42 @@ export async function getFormulaCatalog(forceRefresh = false): Promise<FormulaCa
     }
   }
 
-  // 5. Decorate formulas with release metadata & upstream versions in parallel
-  await Promise.all(
-    formulas.map(async (formula) => {
-      const rel = releasesMap[formula.name];
-      if (rel) {
-        formula.release = rel;
-        formula.releaseTag = rel.tagName;
-        formula.releaseUrl = rel.htmlUrl;
-        formula.publishedAt = rel.publishedAt;
+  // 5. Decorate formulas with release metadata & upstream versions in parallel batches
+  const UPSTREAM_BATCH = 8;
+  for (let i = 0; i < formulas.length; i += UPSTREAM_BATCH) {
+    const batch = formulas.slice(i, i + UPSTREAM_BATCH);
+    await Promise.all(
+      batch.map(async (formula) => {
+        const rel = releasesMap[formula.name];
+        if (rel) {
+          formula.release = rel;
+          formula.releaseTag = rel.tagName;
+          formula.releaseUrl = rel.htmlUrl;
+          formula.publishedAt = rel.publishedAt;
 
-        if (rel.bottleAsset) {
-          formula.hasBottle = true;
-          formula.bottleUrl = rel.bottleAsset.downloadUrl;
-          formula.bottleFilename = rel.bottleAsset.name;
-          formula.bottleSize = rel.bottleAsset.size;
-          formula.bottlePlatform = rel.bottleAsset.platform;
+          if (rel.bottleAsset) {
+            formula.hasBottle = true;
+            formula.bottleUrl = rel.bottleAsset.downloadUrl;
+            formula.bottleFilename = rel.bottleAsset.name;
+            formula.bottleSize = rel.bottleAsset.size;
+            formula.bottlePlatform = rel.bottleAsset.platform;
+          }
+
+          if (rel.version) {
+            formula.fullVersion = rel.version;
+          }
         }
 
-        if (rel.version) {
-          formula.fullVersion = rel.version;
+        try {
+          const upstream = await checkUpstreamVersion(formula.name);
+          formula.upstreamVersion = upstream;
+          formula.hasUpdate = Boolean(upstream && upstream !== formula.version);
+        } catch {
+          // Upstream check is non-fatal
         }
-      }
-
-      try {
-        const upstream = await checkUpstreamVersion(formula.name);
-        formula.upstreamVersion = upstream;
-        formula.hasUpdate = Boolean(upstream && upstream !== formula.version);
-      } catch {
-        // Upstream check is non-fatal
-      }
-    })
-  );
+      })
+    );
+  }
 
   const catalog: FormulaCatalog = {
     formulas,
@@ -402,5 +447,34 @@ export async function getFormulaCatalog(forceRefresh = false): Promise<FormulaCa
   };
 
   catalogCache = { data: catalog, timestamp: now };
+  if (process.env.NODE_ENV !== 'test') {
+    await saveCatalogToDb(catalog, now);
+  }
   return catalog;
+}
+
+export async function getFormulaCatalog(forceRefresh = false): Promise<FormulaCatalog> {
+  const now = Date.now();
+
+  // 1. Cold start hydration from persistent database
+  if (!catalogCache && process.env.NODE_ENV !== 'test') {
+    catalogCache = await loadCatalogFromDb();
+  }
+
+  const hasCache = Boolean(catalogCache);
+  const isStale = !catalogCache || now - catalogCache.timestamp >= CACHE_TTL_SECONDS * 1000;
+
+  // 2. Stale-While-Revalidate: Return cached catalog immediately (< 1ms) if available
+  if (hasCache && !forceRefresh) {
+    if (isStale && !isBackgroundRevalidating) {
+      isBackgroundRevalidating = true;
+      refreshCatalogInternal().finally(() => {
+        isBackgroundRevalidating = false;
+      });
+    }
+    return catalogCache!.data;
+  }
+
+  // 3. Synchronous fetch if forceRefresh requested or completely empty cache
+  return await refreshCatalogInternal();
 }

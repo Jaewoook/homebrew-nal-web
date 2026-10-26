@@ -162,7 +162,7 @@ export async function getWorkflowRuns(forceRefresh = false): Promise<WorkflowRun
     return workflowRunsCache.runs;
   }
 
-  const recentDispatches = getRecentDispatches(20);
+  const recentDispatches = await getRecentDispatches(20);
   const token = getGithubToken();
   const owner = getRepoOwner();
   const repo = getRepoName();

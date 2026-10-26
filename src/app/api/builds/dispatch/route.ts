@@ -63,8 +63,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3. Record dispatch in local SQLite attribution store only upon successful dispatch
-  const record = recordDispatch(formula, user.name, user.email || undefined);
+  // 3. Record dispatch in attribution store only upon successful dispatch
+  const record = await recordDispatch(formula, user.name, user.email || undefined);
 
   return NextResponse.json(
     {

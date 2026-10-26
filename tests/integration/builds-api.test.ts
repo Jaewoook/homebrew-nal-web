@@ -10,12 +10,12 @@ import { clearWorkflowRunsCache } from '@/lib/github-client';
 describe('Builds and Formulas API Routes', () => {
   let authCookie: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env.NEXTAUTH_SECRET = 'test-secret-key-32-chars-long-12345';
     delete process.env.GITHUB_TOKEN;
     delete process.env.GITHUB_PAT;
     authCookie = `nal_session=${createSignedSessionCookie({ name: 'jaewook', email: 'jaewook@nal.local' })}`;
-    initDatabase(':memory:');
+    await initDatabase(':memory:');
     resetRateLimiter();
     clearWorkflowRunsCache();
     vi.restoreAllMocks();

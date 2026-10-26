@@ -27,8 +27,10 @@ export default function HomePage() {
   } = useBuilds(10000);
 
   // Load initial formulas & session
-  async function loadData() {
-    setLoadingFormulas(true);
+  async function loadData(showLoading = true) {
+    if (showLoading) {
+      setLoadingFormulas(true);
+    }
     setFormulasError(null);
     try {
       const [formulasRes, sessionRes] = await Promise.all([
@@ -38,7 +40,15 @@ export default function HomePage() {
 
       if (formulasRes.ok) {
         const data = await formulasRes.json();
-        setFormulas(data.formulas || []);
+        const items = data.formulas || [];
+        setFormulas(items);
+        if (typeof window !== 'undefined' && items.length > 0) {
+          try {
+            sessionStorage.setItem('nal_cached_formulas', JSON.stringify(items));
+          } catch {
+            // Ignore storage quota
+          }
+        }
       } else {
         const errData = await formulasRes.json().catch(() => ({}));
         setFormulasError(
@@ -60,7 +70,24 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    loadData();
+    let hasLocalCache = false;
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem('nal_cached_formulas');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setFormulas(parsed);
+            setLoadingFormulas(false);
+            hasLocalCache = true;
+          }
+        }
+      } catch {
+        // Ignore JSON error
+      }
+    }
+
+    loadData(!hasLocalCache);
 
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -144,7 +171,7 @@ export default function HomePage() {
                   <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">{formulasError}</p>
                 </div>
                 <button
-                  onClick={loadData}
+                  onClick={() => loadData(true)}
                   className="px-4 py-1.5 text-xs font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors cursor-pointer"
                 >
                   Retry Connection
