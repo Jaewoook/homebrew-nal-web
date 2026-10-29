@@ -1,5 +1,9 @@
 # homebrew-nal-web
 
+<p align="center">
+  <img src=".github/assets/hero-banner.jpg" alt="Homebrew NAL Registry — Prebuilt Bottle Catalog & Live Build Queue for macOS Intel (x86_64)" width="100%">
+</p>
+
 [![Next.js 15](https://img.shields.io/badge/Next.js-15.1-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
@@ -49,6 +53,10 @@ Upstream Homebrew 4.x classifies macOS Intel (`x86_64`) as Tier 3 and has ceased
 ---
 
 ## Key Features
+
+<p align="center">
+  <img src=".github/assets/showcase.jpg" alt="Homebrew NAL Registry — Interactive Catalog & Live Build Queue" width="100%">
+</p>
 
 - 🔍 **Interactive Formula Catalog**: Instant client-side search, runtime dependency visualizers, bottle sizes, platform tags, and one-click `brew install` commands.
 - ⚡ **Live Build Queue Stream**: Real-time status monitoring of GitHub Actions runner workflows with actor attribution, duration timers, and direct run links.
