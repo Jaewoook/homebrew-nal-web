@@ -80,9 +80,22 @@ export function FormulaList({
               <span>Request &ldquo;{searchQuery.trim()}&rdquo; from Upstream</span>
             </button>
           ) : (
-            <p className="text-xs text-slate-500 mt-2.5 italic">
-              Sign in with your NAL account to request adding &ldquo;{searchQuery.trim()}&rdquo; from upstream to this tap.
-            </p>
+            <div className="mt-2.5 text-xs text-slate-500">
+              <p className="italic">
+                Sign in with your NAL account to request adding &ldquo;{searchQuery.trim()}&rdquo; from upstream to this tap.
+              </p>
+              <p className="mt-1.5">
+                External contributor without an account?{' '}
+                <a
+                  href={`https://github.com/Jaewoook/homebrew-nal/issues/new?template=new_formula_request.yml&title=%5BFormula+Request%5D%3A+${encodeURIComponent(searchQuery.trim())}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 underline font-medium"
+                >
+                  Request this formula on GitHub &rarr;
+                </a>
+              </p>
+            </div>
           )}
         </div>
       ) : (
