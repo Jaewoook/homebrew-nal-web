@@ -1,0 +1,107 @@
+name: Bug Report
+description: File a bug report to help us improve homebrew-nal-web
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please search existing issues before submitting to avoid duplicates.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Clear steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+      placeholder: Describe the expected behavior...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior / Screenshots
+      description: What actually happened? (Include screenshots or screen recordings if applicable)
+      placeholder: Describe the actual outcome...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: db-engine
+    attributes:
+      label: Database Backend
+      description: Which database engine are you running?
+      options:
+        - SQLite (Default standalone)
+        - PostgreSQL
+        - MySQL / MariaDB
+        - Other / Unknown
+    validations:
+      required: false
+
+  - type: dropdown
+    id: deployment-mode
+    attributes:
+      label: Deployment Mode
+      description: How is the application running?
+      options:
+        - Docker Compose (Standalone)
+        - Docker Compose (Reverse Proxy / NAL Stack)
+        - Local Node / Yarn (`yarn dev` or `yarn start`)
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Info
+      description: Browser, OS, Node.js version, container version, etc.
+      placeholder: |
+        - OS: [e.g. macOS Sonoma 14.5 / Ubuntu 22.04]
+        - Browser: [e.g. Chrome 124, Safari 17]
+        - Node Version: [e.g. v22.13.0]
+        - Docker Image Tag: [e.g. homebrew-nal-web:latest]
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs & Output
+      description: Please paste any relevant console logs, terminal output, or browser DevTools errors.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate.
+          required: true
+        - label: I have verified this behavior on the latest release or main branch.
+          required: true

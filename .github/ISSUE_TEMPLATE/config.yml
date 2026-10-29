@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Homebrew NAL Tap Repository
+    url: https://github.com/Jaewoook/homebrew-nal
+    about: For Formula ruby definitions, bottle release discussions, and tap issues.
+  - name: Security Vulnerability Reporting
+    url: https://github.com/Jaewoook/homebrew-nal-web/security/advisories/new
+    about: Report sensitive security vulnerabilities privately.
