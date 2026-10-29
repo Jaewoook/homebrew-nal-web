@@ -5,7 +5,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
 [![Kysely](https://img.shields.io/badge/ORM-Kysely-orange)](https://kysely.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker)](https://www.docker.com/)
-[![Vitest](https://img.shields.io/badge/Tests-82%20Passing-green?logo=vitest)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Tests-86%20Passing-green?logo=vitest)](https://vitest.dev/)
 
 The official package registry, bottle distribution portal, and automated runner dispatch dashboard for the [**homebrew-nal**](https://github.com/Jaewoook/homebrew-nal) tap.
 

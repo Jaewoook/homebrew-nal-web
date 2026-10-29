@@ -100,4 +100,21 @@ describe('FormulaCard Component', () => {
     expect(screen.getByText(/21\.1 MB/i)).toBeDefined();
     expect(screen.getAllByText(/sequoia/i).length).toBeGreaterThanOrEqual(1);
   });
+
+  it('refuses to render unsafe URL schemes (javascript: or data:) as clickable links', () => {
+    const unsafeFormula = {
+      ...sampleFormula,
+      name: 'unsafe-pkg',
+      homepage: 'javascript:alert(document.cookie)',
+      releaseTag: 'unsafe-pkg.1.0.0',
+      releaseUrl: 'javascript:evil()',
+      bottleUrl: 'data:text/html,<script>alert(1)</script>',
+    };
+
+    render(<FormulaCard formula={unsafeFormula} isAuthenticated={false} />);
+    fireEvent.click(screen.getByText('unsafe-pkg'));
+
+    const links = screen.queryAllByRole('link');
+    expect(links.length).toBe(0);
+  });
 });

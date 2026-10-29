@@ -96,4 +96,18 @@ describe('Auth Session Verification & Signing', () => {
     const req2 = new Request('http://localhost:3000/api/auth/login');
     expect(getRequestOrigin(req2)).toBe('http://localhost:3000');
   });
+
+  it('throws in production when NEXTAUTH_URL is not configured and ignores spoofed x-forwarded-host', () => {
+    delete process.env.NEXTAUTH_URL;
+    const spoofedReq = new Request('http://localhost:3000/api/auth/login', {
+      headers: {
+        'x-forwarded-host': 'evil.attacker.com',
+        'x-forwarded-proto': 'https',
+      },
+    });
+    expect(getRequestOrigin(spoofedReq)).toBe('http://localhost:3000');
+
+    process.env.NODE_ENV = 'production';
+    expect(() => getRequestOrigin(spoofedReq)).toThrow(/NEXTAUTH_URL is required/);
+  });
 });

@@ -136,10 +136,10 @@ export function getRequestOrigin(request: Request): string {
   if (process.env.NEXTAUTH_URL) {
     return process.env.NEXTAUTH_URL.replace(/\/+$/, '');
   }
-  const reqUrl = new URL(request.url);
-  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || reqUrl.host;
-  const proto = request.headers.get('x-forwarded-proto') || reqUrl.protocol.replace(':', '');
-  return `${proto}://${host}`;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXTAUTH_URL is required in production environment');
+  }
+  return new URL(request.url).origin;
 }
 
 export async function validateSession(request: Request): Promise<UserSession | null> {

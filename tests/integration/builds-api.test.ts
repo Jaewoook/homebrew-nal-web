@@ -31,6 +31,20 @@ describe('Builds and Formulas API Routes', () => {
     expect(res.status).toBe(401);
   });
 
+  it('rejects cross-origin dispatch requests with 403', async () => {
+    const req = new Request('http://localhost:3000/api/builds/dispatch', {
+      method: 'POST',
+      body: JSON.stringify({ formula: 'ffmpeg-nal' }),
+      headers: {
+        'Content-Type': 'application/json',
+        cookie: authCookie,
+        origin: 'https://evil-attacker.com',
+      },
+    });
+    const res = await dispatchHandler(req);
+    expect(res.status).toBe(403);
+  });
+
   it('rejects invalid formula names with 400', async () => {
     const req = new Request('http://localhost:3000/api/builds/dispatch', {
       method: 'POST',

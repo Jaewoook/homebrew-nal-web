@@ -183,13 +183,13 @@ export function FormulaCard({
 
           {/* Links & Metadata */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            {formula.homepage && (
+            {formula.homepage && /^https?:\/\//i.test(formula.homepage.trim()) && (
               <div className="flex items-center gap-1.5 text-slate-400">
                 <span>Homepage:</span>
                 <a
                   href={formula.homepage}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="text-blue-400 hover:underline flex items-center gap-1 truncate"
                 >
                   {formula.homepage} <ExternalLink className="w-3 h-3" />
@@ -230,11 +230,11 @@ export function FormulaCard({
                 <div className="flex items-center gap-2">
                   <Tag className="w-3.5 h-3.5 text-blue-400" />
                   <span className="text-xs font-semibold text-slate-200">GitHub Release:</span>
-                  {formula.releaseUrl ? (
+                  {formula.releaseUrl && /^https?:\/\//i.test(formula.releaseUrl.trim()) ? (
                     <a
                       href={formula.releaseUrl}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="font-mono text-xs text-blue-400 hover:underline flex items-center gap-1"
                     >
                       {formula.releaseTag}
@@ -259,7 +259,7 @@ export function FormulaCard({
                 )}
               </div>
 
-              {formula.bottleUrl && (
+              {formula.bottleUrl && /^https?:\/\//i.test(formula.bottleUrl.trim()) && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-300">Precompiled Bottle:</span>
@@ -278,7 +278,7 @@ export function FormulaCard({
                   <a
                     href={formula.bottleUrl}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-emerald-400 hover:text-emerald-300 border border-slate-700/60 transition-colors w-fit"
                   >
                     <Download className="w-3.5 h-3.5" />

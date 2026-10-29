@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validateSession } from '@/lib/auth';
+import { validateSession, getRequestOrigin } from '@/lib/auth';
 import { recordDispatch } from '@/lib/dispatch-store';
 import { dispatchSyncWorkflow } from '@/lib/github-client';
 import { checkRateLimit } from '@/lib/rate-limiter';
@@ -7,6 +7,15 @@ import { checkRateLimit } from '@/lib/rate-limiter';
 const FORMULA_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9+@._-]{0,63}$/;
 
 export async function POST(request: Request) {
+  const origin = request.headers.get('origin');
+  const expectedOrigin = getRequestOrigin(request);
+  if (origin && origin !== expectedOrigin) {
+    return NextResponse.json(
+      { error: 'Forbidden', message: 'Cross-origin requests are not allowed.' },
+      { status: 403 }
+    );
+  }
+
   const user = await validateSession(request);
   if (!user) {
     return NextResponse.json(
