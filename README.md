@@ -37,7 +37,7 @@ The official package registry, bottle distribution portal, and automated runner 
 
 ## Overview
 
-Upstream Homebrew 4.x classifies macOS Intel (`x86_64`) as Tier 3 and has ceased publishing pre-built binary bottles for Intel Macs, forcing formulae to compile from source. The [**homebrew-nal**](https://github.com/Jaewoook/homebrew-nal) tap provides a dedicated Intel runner that automatically packages binary bottles so users can install software instantly with zero source compilation.
+Upstream Homebrew 4.x classifies macOS Intel (`x86_64`) as Tier 3 and has ceased publishing pre-built binary bottles for Intel Macs, forcing formulae to compile from source. The [**homebrew-nal**](https://github.com/Jaewoook/homebrew-nal) tap provides a dedicated Intel runner that automatically packages binary bottles for **macOS Intel (`x86_64`)** (supporting macOS 15+ — Sequoia, Tahoe, and later) so users can install software instantly with zero source compilation.
 
 **`homebrew-nal-web`** serves as the public frontend and control center for the tap:
 - Catalogs all bottled packages and parses formula Ruby definitions dynamically.
