@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Formula, FormulaCatalog, FormulaRelease, BottleAsset } from '@/types/formula';
-import { parseFormulaRuby } from './formula-parser';
+import { parseFormulaRuby, parseCaskRuby } from './formula-parser';
 import { checkUpstreamVersion } from './upstream-checker';
 import { getCatalogCache, saveCatalogCache } from './db';
 
@@ -205,15 +205,21 @@ export async function fetchReleasesMap(
     }
 
     for (const r of data) {
-      const match = r.tag_name?.match(/^([a-z0-9_-]+?)\.([0-9].*)$/);
-      const formulaName = match ? match[1] : r.tag_name;
+      const tagName = String(r.tag_name || '');
+      const isCaskRelease = tagName.startsWith('cask-');
+      const strippedTag = isCaskRelease ? tagName.slice(5) : tagName;
+      const match = strippedTag.match(/^([a-zA-Z0-9._+-]+?)\.([0-9].*)$/);
+      const itemName = match ? match[1] : strippedTag;
       const releaseVersion = match ? match[2] : '';
 
-      // Find bottle asset (.tar.gz or .bottle.)
       let bottleAsset: BottleAsset | undefined;
       if (Array.isArray(r.assets)) {
         const asset = r.assets.find(
-          (a: any) => typeof a.name === 'string' && (a.name.endsWith('.tar.gz') || a.name.includes('.bottle.'))
+          (a: any) =>
+            typeof a.name === 'string' &&
+            (a.name.endsWith('.tar.gz') ||
+              a.name.includes('.bottle.') ||
+              (isCaskRelease && /\.(dmg|pkg|zip|tar\.(gz|xz|bz2)|tgz)$/i.test(a.name)))
         );
 
         if (asset) {
@@ -224,20 +230,33 @@ export async function fetchReleasesMap(
             name: asset.name,
             size: typeof asset.size === 'number' ? asset.size : 0,
             downloadUrl: asset.browser_download_url || '',
-            platform: platformMatch ? platformMatch[1] : undefined,
+            platform: platformMatch ? platformMatch[1] : isCaskRelease ? 'x86_64' : undefined,
             rebuild: rebuildMatch ? parseInt(rebuildMatch[1], 10) : undefined,
             digest: asset.digest,
           };
         }
       }
 
-      releaseMap[formulaName] = {
-        tagName: r.tag_name,
-        version: releaseVersion || r.tag_name,
+      const releaseInfo: FormulaRelease = {
+        tagName,
+        version: releaseVersion || tagName,
         htmlUrl: r.html_url,
         publishedAt: r.published_at,
         bottleAsset,
       };
+
+      if (isCaskRelease) {
+        if (!releaseMap[`cask:${itemName}`]) {
+          releaseMap[`cask:${itemName}`] = releaseInfo;
+        }
+      } else {
+        if (!releaseMap[`formula:${itemName}`]) {
+          releaseMap[`formula:${itemName}`] = releaseInfo;
+        }
+        if (!releaseMap[itemName]) {
+          releaseMap[itemName] = releaseInfo;
+        }
+      }
     }
   } catch (err) {
     console.warn('Failed to fetch GitHub releases map:', err);
@@ -263,6 +282,7 @@ function loadFormulasFromLocalTap(): Formula[] {
   for (const p of possiblePaths) {
     try {
       const formulaDir = path.join(p, 'Formula');
+      const caskDir = path.join(p, 'Casks');
       if (fs.existsSync(formulaDir)) {
         const files = fs.readdirSync(formulaDir).filter((f) => f.endsWith('.rb'));
         if (files.length > 0) {
@@ -271,6 +291,14 @@ function loadFormulasFromLocalTap(): Formula[] {
             const name = file.replace(/\.rb$/, '');
             const content = fs.readFileSync(path.join(formulaDir, file), 'utf-8');
             formulas.push(parseFormulaRuby(name, content));
+          }
+          if (fs.existsSync(caskDir)) {
+            const caskFiles = fs.readdirSync(caskDir).filter((f) => f.endsWith('.rb'));
+            for (const file of caskFiles) {
+              const name = file.replace(/\.rb$/, '');
+              const content = fs.readFileSync(path.join(caskDir, file), 'utf-8');
+              formulas.push(parseCaskRuby(name, content));
+            }
           }
           return formulas;
         }
@@ -371,6 +399,31 @@ async function refreshCatalogInternal(): Promise<FormulaCatalog> {
             })
           );
         }
+        const casksRes = await fetch(
+          `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/Casks`,
+          { headers }
+        ).catch(() => null);
+        if (casksRes && casksRes.ok) {
+          const caskFiles = (await casksRes.json()) as Array<{ name: string; download_url: string }>;
+          const caskRbFiles = caskFiles.filter((f) => f.name.endsWith('.rb'));
+          for (let i = 0; i < caskRbFiles.length; i += BATCH_SIZE) {
+            const batch = caskRbFiles.slice(i, i + BATCH_SIZE);
+            await Promise.all(
+              batch.map(async (file) => {
+                try {
+                  const name = file.name.replace(/\.rb$/, '');
+                  const fileRes = await fetch(file.download_url, { headers });
+                  if (fileRes.ok) {
+                    const content = await fileRes.text();
+                    formulas.push(parseCaskRuby(name, content));
+                  }
+                } catch {
+                  // Ignore individual cask file error
+                }
+              })
+            );
+          }
+        }
       } else if (res.status === 403 || res.status === 429) {
         fetchFailed = true;
       }
@@ -409,7 +462,10 @@ async function refreshCatalogInternal(): Promise<FormulaCatalog> {
     const batch = formulas.slice(i, i + UPSTREAM_BATCH);
     await Promise.all(
       batch.map(async (formula) => {
-        const rel = releasesMap[formula.name];
+        const isCask = formula.packageType === 'cask';
+        const rel = isCask
+          ? releasesMap[`cask:${formula.name}`]
+          : (releasesMap[`formula:${formula.name}`] ?? releasesMap[formula.name]);
         if (rel) {
           formula.release = rel;
           formula.releaseTag = rel.tagName;
@@ -430,7 +486,7 @@ async function refreshCatalogInternal(): Promise<FormulaCatalog> {
         }
 
         try {
-          const upstream = await checkUpstreamVersion(formula.name);
+          const upstream = await checkUpstreamVersion(formula.name, isCask ? 'cask' : 'formula');
           formula.upstreamVersion = upstream;
           formula.hasUpdate = Boolean(upstream && upstream !== formula.version);
         } catch {

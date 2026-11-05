@@ -126,4 +126,50 @@ describe('Formula Service', () => {
       expect(ffmpeg.bottlePlatform).toBe('sequoia');
     }
   });
+
+  it('maps cask-<name>.<version> releases separately from formula releases without collision', async () => {
+    const mockReleases = [
+      {
+        tag_name: 'docker.28.0.0',
+        name: 'docker 28.0.0',
+        html_url: 'https://github.com/Jaewoook/homebrew-nal/releases/tag/docker.28.0.0',
+        published_at: '2026-10-20T00:00:00Z',
+        assets: [
+          {
+            name: 'docker-28.0.0.sequoia.bottle.tar.gz',
+            size: 12000000,
+            browser_download_url: 'https://github.com/Jaewoook/homebrew-nal/releases/download/docker.28.0.0/docker-28.0.0.sequoia.bottle.tar.gz',
+          },
+        ],
+      },
+      {
+        tag_name: 'cask-docker.4.38.0',
+        name: 'cask-docker 4.38.0',
+        html_url: 'https://github.com/Jaewoook/homebrew-nal/releases/tag/cask-docker.4.38.0',
+        published_at: '2026-10-21T00:00:00Z',
+        assets: [
+          {
+            name: 'Docker.dmg',
+            size: 540000000,
+            browser_download_url: 'https://github.com/Jaewoook/homebrew-nal/releases/download/cask-docker.4.38.0/Docker.dmg',
+          },
+        ],
+      },
+    ];
+
+    vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+      if (String(url).includes('/releases')) {
+        return { ok: true, json: async () => mockReleases } as Response;
+      }
+      return { ok: false, status: 404 } as Response;
+    });
+
+    const releaseMap = await fetchReleasesMap();
+    expect(releaseMap['docker'].tagName).toBe('docker.28.0.0');
+    expect(releaseMap['formula:docker'].tagName).toBe('docker.28.0.0');
+    expect(releaseMap['cask:docker']).toBeDefined();
+    expect(releaseMap['cask:docker'].tagName).toBe('cask-docker.4.38.0');
+    expect(releaseMap['cask:docker'].bottleAsset?.name).toBe('Docker.dmg');
+    expect(releaseMap['cask:docker'].bottleAsset?.size).toBe(540000000);
+  });
 });

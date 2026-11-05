@@ -17,6 +17,7 @@ export interface FormulaRelease {
 
 export interface Formula {
   name: string;
+  packageType?: 'formula' | 'cask';
   version: string;
   revision?: number;
   fullVersion?: string; // e.g. "9.0.2_1" or "3.8"

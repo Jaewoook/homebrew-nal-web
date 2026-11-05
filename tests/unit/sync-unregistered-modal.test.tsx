@@ -103,4 +103,42 @@ describe('SyncUnregisteredModal Component', () => {
 
     expect(await screen.findByText(/Session expired/i)).toBeDefined();
   });
+
+  it('switches to Cask mode, disables with_deps, and dispatches with type: cask', async () => {
+    const onDispatchSuccess = vi.fn();
+    const onClose = vi.fn();
+
+    let capturedPayload: any = null;
+    vi.spyOn(global, 'fetch').mockImplementation(async (_url: any, init?: any) => {
+      capturedPayload = JSON.parse(init?.body || '{}');
+      return { ok: true, status: 202 } as Response;
+    });
+
+    render(
+      <SyncUnregisteredModal
+        isOpen={true}
+        onClose={onClose}
+        initialFormula="ghostty"
+        onDispatchSuccess={onDispatchSuccess}
+      />
+    );
+
+    const caskTab = screen.getByRole('button', { name: /^Cask$/i });
+    fireEvent.click(caskTab);
+
+    const submitBtn = screen.getByRole('button', { name: /Request Sync & Build/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(onDispatchSuccess).toHaveBeenCalledWith('ghostty');
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    expect(capturedPayload).toEqual({
+      formula: 'ghostty',
+      type: 'cask',
+      force: false,
+      with_deps: false,
+    });
+  });
 });

@@ -63,6 +63,7 @@ export function parseFormulaRuby(name: string, content: string): Formula {
 
   return {
     name,
+    packageType: 'formula',
     version: baseVersion,
     revision,
     fullVersion,
@@ -73,5 +74,33 @@ export function parseFormulaRuby(name: string, content: string): Formula {
     dependencies,
     hasBottle,
     bottlePlatforms: bottlePlatforms.length > 0 ? bottlePlatforms : undefined,
+  };
+}
+
+export function parseCaskRuby(filenameOrName: string, content: string): Formula {
+  const name = filenameOrName.replace(/\.rb$/, '');
+  const descMatch = content.match(/desc\s+["'](.*?)["']/);
+  const homepageMatch = content.match(/homepage\s+["'](.*?)["']/);
+  const urlMatch = content.match(/url\s+["'](.*?)["']/);
+  const versionMatch = content.match(/version\s+["'](.*?)["']/);
+
+  const rawVersion = versionMatch ? versionMatch[1] : 'unknown';
+  const version = rawVersion.split(',')[0] || 'unknown';
+  const url = urlMatch ? urlMatch[1] : undefined;
+  const isMirrored = Boolean(
+    url && url.includes('github.com/Jaewoook/homebrew-nal/releases/download/cask-')
+  );
+
+  return {
+    name,
+    packageType: 'cask',
+    version,
+    fullVersion: version,
+    desc: descMatch ? descMatch[1] : '',
+    homepage: homepageMatch ? homepageMatch[1] : undefined,
+    url,
+    dependencies: [],
+    hasBottle: isMirrored,
+    bottlePlatforms: isMirrored ? ['x86_64'] : undefined,
   };
 }

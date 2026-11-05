@@ -55,7 +55,9 @@ export function correlateRunActor(
   // Extract formula from display_title if present (e.g. "Update rust formula to 1.99.1")
   let titleFormula: string | undefined;
   if (run.display_title) {
-    const m = run.display_title.match(/(?:Update|Sync|Build)\s+([a-zA-Z0-9_-]+)\s+formula/i);
+    const m =
+      run.display_title.match(/(?:Update|Sync|Build)\s+([a-zA-Z0-9_@+-]+)\s+(?:formula|cask)/i) ||
+      run.display_title.match(/^(?:bottle|cask)\(([a-zA-Z0-9_@+-]+)\):/i);
     if (m) {
       titleFormula = m[1].toLowerCase();
     }
@@ -99,6 +101,7 @@ export function clearWorkflowRunsCache(): void {
 }
 
 export interface SyncWorkflowOptions {
+  type?: 'formula' | 'cask';
   force?: boolean;
   with_deps?: boolean;
 }
@@ -121,11 +124,18 @@ export async function dispatchSyncWorkflow(
   const repo = getRepoName();
   const workflow = getSyncWorkflow();
 
-  const inputs: Record<string, any> = {
-    formulas: trimmedFormula,
-    force: Boolean(options?.force),
-    with_deps: Boolean(options?.with_deps),
-  };
+  const isCask = options?.type === 'cask';
+  const inputs: Record<string, any> = isCask
+    ? {
+        casks: trimmedFormula,
+        force: Boolean(options?.force),
+        with_deps: false,
+      }
+    : {
+        formulas: trimmedFormula,
+        force: Boolean(options?.force),
+        with_deps: Boolean(options?.with_deps),
+      };
 
   try {
     const res = await fetch(

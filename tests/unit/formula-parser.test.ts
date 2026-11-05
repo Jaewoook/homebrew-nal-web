@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFormulaRuby } from '@/lib/formula-parser';
+import { parseFormulaRuby, parseCaskRuby } from '@/lib/formula-parser';
 
 describe('Formula Ruby Parser', () => {
   const sampleRb = `
@@ -77,5 +77,31 @@ describe('Formula Ruby Parser', () => {
     expect(formula.fullVersion).toBe('9.0.2_1');
     expect(formula.hasBottle).toBe(true);
     expect(formula.bottlePlatforms).toContain('sequoia');
+  });
+
+  it('extracts cask metadata and mirrored binary state from ruby cask file', () => {
+    const ghosttyCaskRb = `
+      cask "ghostty" do
+        version "1.1.2"
+        sha256 "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+
+        url "https://github.com/Jaewoook/homebrew-nal/releases/download/cask-ghostty.1.1.2/Ghostty.dmg"
+        name "Ghostty"
+        desc "Terminal emulator that uses platform-native UI and GPU acceleration"
+        homepage "https://ghostty.org/"
+
+        app "Ghostty.app"
+      end
+    `;
+
+    const cask = parseCaskRuby('ghostty.rb', ghosttyCaskRb);
+    expect(cask.name).toBe('ghostty');
+    expect(cask.packageType).toBe('cask');
+    expect(cask.version).toBe('1.1.2');
+    expect(cask.fullVersion).toBe('1.1.2');
+    expect(cask.desc).toBe('Terminal emulator that uses platform-native UI and GPU acceleration');
+    expect(cask.homepage).toBe('https://ghostty.org/');
+    expect(cask.hasBottle).toBe(true);
+    expect(cask.dependencies).toEqual([]);
   });
 });

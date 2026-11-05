@@ -102,7 +102,7 @@ export function FormulaList({
         <div className="space-y-3">
           {filtered.map((formula) => (
             <FormulaCard
-              key={formula.name}
+              key={`${formula.packageType || 'formula'}:${formula.name}`}
               formula={formula}
               isAuthenticated={isAuthenticated}
               isBuilding={activeBuildingFormulas.includes(formula.name)}

@@ -62,9 +62,10 @@ export async function POST(request: Request) {
   }
 
   // 2. Dispatch GitHub Actions workflow first
+  const type = body?.type === 'cask' ? 'cask' : 'formula';
   const force = Boolean(body?.force);
-  const with_deps = Boolean(body?.with_deps || body?.withDeps);
-  const result = await dispatchSyncWorkflow(formula, { force, with_deps });
+  const with_deps = type === 'cask' ? false : Boolean(body?.with_deps || body?.withDeps);
+  const result = await dispatchSyncWorkflow(formula, { type, force, with_deps });
   if (!result.success) {
     return NextResponse.json(
       { error: 'Dispatch failed', message: result.error },

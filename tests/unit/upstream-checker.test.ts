@@ -27,4 +27,22 @@ describe('Upstream Version Checker', () => {
     const version = await checkUpstreamVersion('nal-custom-internal');
     expect(version).toBeNull();
   });
+
+  it('returns upstream cask version when packageType is cask', async () => {
+    let requestedUrl = '';
+    vi.spyOn(global, 'fetch').mockImplementationOnce(async (url: any) => {
+      requestedUrl = String(url);
+      return {
+        ok: true,
+        json: async () => ({
+          token: 'ghostty',
+          version: '1.1.3',
+        }),
+      } as Response;
+    });
+
+    const version = await checkUpstreamVersion('ghostty', 'cask');
+    expect(requestedUrl).toContain('/api/cask/ghostty.json');
+    expect(version).toBe('1.1.3');
+  });
 });

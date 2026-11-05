@@ -231,4 +231,31 @@ describe('GitHub Client Utilities', () => {
     expect(result.error).toContain('Formula is required');
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it('dispatchSyncWorkflow sends casks input when type is cask', async () => {
+    const originalToken = process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = 'test-token-123';
+    let requestBody: any = {};
+
+    vi.spyOn(global, 'fetch').mockImplementation(async (_url: any, init?: any) => {
+      requestBody = JSON.parse(init?.body || '{}');
+      return { status: 204, ok: true } as Response;
+    });
+
+    try {
+      const result = await dispatchSyncWorkflow('ghostty', { type: 'cask', force: true });
+      expect(result.success).toBe(true);
+      expect(requestBody.inputs).toEqual({
+        casks: 'ghostty',
+        force: true,
+        with_deps: false,
+      });
+    } finally {
+      if (originalToken) {
+        process.env.GITHUB_TOKEN = originalToken;
+      } else {
+        delete process.env.GITHUB_TOKEN;
+      }
+    }
+  });
 });

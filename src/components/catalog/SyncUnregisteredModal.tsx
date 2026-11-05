@@ -21,6 +21,7 @@ export function SyncUnregisteredModal({
   onSessionExpired,
 }: SyncUnregisteredModalProps) {
   const [formulaName, setFormulaName] = useState(initialFormula);
+  const [packageType, setPackageType] = useState<'formula' | 'cask'>('formula');
   const [force, setForce] = useState(false);
   const [withDeps, setWithDeps] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -29,6 +30,7 @@ export function SyncUnregisteredModal({
   useEffect(() => {
     if (isOpen) {
       setFormulaName(initialFormula);
+      setPackageType('formula');
       setErrorMsg(null);
       setLoading(false);
     }
@@ -70,8 +72,9 @@ export function SyncUnregisteredModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formula: cleanName,
+          ...(packageType === 'cask' ? { type: 'cask' } : {}),
           force,
-          with_deps: withDeps,
+          with_deps: packageType === 'cask' ? false : withDeps,
         }),
       });
 
@@ -126,9 +129,34 @@ export function SyncUnregisteredModal({
             <span className="text-slate-200 font-mono font-medium">jaewoook/homebrew-nal</span> and built on your runner.
           </p>
 
+          <div className="flex items-center gap-1 p-1 bg-slate-950 border border-slate-800 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setPackageType('formula')}
+              className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                packageType === 'formula'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Formula
+            </button>
+            <button
+              type="button"
+              onClick={() => setPackageType('cask')}
+              className={`flex-1 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                packageType === 'cask'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Cask
+            </button>
+          </div>
+
           <div>
             <label htmlFor="formula-name-input" className="block text-xs font-medium text-slate-300 mb-1.5">
-              Formula Name <span className="text-blue-400">*</span>
+              {packageType === 'cask' ? 'Cask Name' : 'Formula Name'} <span className="text-blue-400">*</span>
             </label>
             <input
               id="formula-name-input"
@@ -144,21 +172,23 @@ export function SyncUnregisteredModal({
 
           {/* Options */}
           <div className="space-y-2 pt-1">
-            <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-300 hover:text-slate-100 select-none">
-              <input
-                type="checkbox"
-                checked={withDeps}
-                onChange={(e) => setWithDeps(e.target.checked)}
-                disabled={loading}
-                className="mt-0.5 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
-              />
-              <div>
-                <span className="font-medium">Resolve runtime dependencies</span>
-                <p className="text-[11px] text-slate-500">
-                  Automatically adds any missing dependency formulas from upstream into this tap.
-                </p>
-              </div>
-            </label>
+            {packageType === 'formula' && (
+              <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-300 hover:text-slate-100 select-none">
+                <input
+                  type="checkbox"
+                  checked={withDeps}
+                  onChange={(e) => setWithDeps(e.target.checked)}
+                  disabled={loading}
+                  className="mt-0.5 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                />
+                <div>
+                  <span className="font-medium">Resolve runtime dependencies</span>
+                  <p className="text-[11px] text-slate-500">
+                    Automatically adds any missing dependency formulas from upstream into this tap.
+                  </p>
+                </div>
+              </label>
+            )}
 
             <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-300 hover:text-slate-100 select-none">
               <input

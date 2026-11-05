@@ -1,6 +1,7 @@
 import { getUpstreamCache, saveUpstreamCache } from './db';
 
 interface UpstreamApiResponse {
+  version?: string;
   versions?: {
     stable?: string;
   };
@@ -31,35 +32,45 @@ async function saveToDb(formulaName: string, version: string | null, timestamp: 
   }
 }
 
-export async function checkUpstreamVersion(formulaName: string): Promise<string | null> {
+export async function checkUpstreamVersion(
+  formulaName: string,
+  packageType: 'formula' | 'cask' = 'formula'
+): Promise<string | null> {
   const now = Date.now();
-  const cached = memoryCache.get(formulaName) || (await getFromDb(formulaName));
+  const cacheKey = packageType === 'cask' ? `cask:${formulaName}` : formulaName;
+  const cached = memoryCache.get(cacheKey) || (await getFromDb(cacheKey));
   if (cached && now - cached.timestamp < CACHE_TTL_MS) {
-    memoryCache.set(formulaName, cached);
+    memoryCache.set(cacheKey, cached);
     return cached.version;
   }
 
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
 
+  const endpoint =
+    packageType === 'cask'
+      ? `https://formulae.brew.sh/api/cask/${encodeURIComponent(formulaName)}.json`
+      : `https://formulae.brew.sh/api/formula/${encodeURIComponent(formulaName)}.json`;
+
   try {
-    const res = await fetch(`https://formulae.brew.sh/api/formula/${encodeURIComponent(formulaName)}.json`, {
+    const res = await fetch(endpoint, {
       signal: controller?.signal,
     });
     if (!res.ok) {
-      memoryCache.set(formulaName, { version: null, timestamp: now });
-      await saveToDb(formulaName, null, now);
+      memoryCache.set(cacheKey, { version: null, timestamp: now });
+      await saveToDb(cacheKey, null, now);
       return null;
     }
 
     const data = (await res.json()) as UpstreamApiResponse;
-    const version = data.versions?.stable ?? null;
-    memoryCache.set(formulaName, { version, timestamp: now });
-    await saveToDb(formulaName, version, now);
+    const rawVersion = packageType === 'cask' ? (data.version ?? null) : (data.versions?.stable ?? null);
+    const version = rawVersion ? rawVersion.split(',')[0] : null;
+    memoryCache.set(cacheKey, { version, timestamp: now });
+    await saveToDb(cacheKey, version, now);
     return version;
   } catch (error) {
     if (process.env.NODE_ENV !== 'test') {
-      console.error(`Failed to fetch upstream version for ${formulaName}:`, error);
+      console.error(`Failed to fetch upstream version for ${cacheKey}:`, error);
     }
     return null;
   } finally {

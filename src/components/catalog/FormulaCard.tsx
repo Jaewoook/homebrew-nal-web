@@ -52,8 +52,11 @@ export function FormulaCard({
   const [forceSync, setForceSync] = useState(false);
   const [withDeps, setWithDeps] = useState(false);
 
+  const isCask = formula.packageType === 'cask';
   const displayVersion = formula.fullVersion || formula.version;
-  const installCommand = `brew install jaewoook/nal/${formula.name}`;
+  const installCommand = isCask
+    ? `brew install --cask jaewoook/nal/${formula.name}`
+    : `brew install jaewoook/nal/${formula.name}`;
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -77,8 +80,9 @@ export function FormulaCard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formula: formula.name,
+          ...(isCask ? { type: 'cask' } : {}),
           force: forceSync,
-          with_deps: withDeps,
+          with_deps: isCask ? false : withDeps,
         }),
       });
 
@@ -132,6 +136,12 @@ export function FormulaCard({
               <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
                 v{displayVersion}
               </span>
+
+              {isCask && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 font-mono uppercase tracking-wider font-medium">
+                  cask
+                </span>
+              )}
 
               {formula.upstreamVersion && formula.hasUpdate && (
                 <span className="text-[11px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 flex items-center gap-1">
@@ -282,7 +292,7 @@ export function FormulaCard({
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-medium text-emerald-400 hover:text-emerald-300 border border-slate-700/60 transition-colors w-fit"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download Bottle</span>
+                    <span>{isCask ? 'Download Binary' : 'Download Bottle'}</span>
                   </a>
                 </div>
               )}

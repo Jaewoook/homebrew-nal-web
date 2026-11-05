@@ -192,4 +192,33 @@ describe('Builds and Formulas API Routes', () => {
     expect(data.error).toBe('Failed to fetch build runs');
     expect(data.runs).toEqual([]);
   });
+
+  it('POST /api/builds/dispatch forwards type: cask as casks input to GitHub Actions', async () => {
+    process.env.GITHUB_TOKEN = 'test-token-123';
+    let dispatchedBody: any = null;
+    vi.spyOn(global, 'fetch').mockImplementation(async (url: any, init?: any) => {
+      if (String(url).includes('/dispatches')) {
+        dispatchedBody = JSON.parse(init?.body || '{}');
+        return { ok: true, status: 204 } as Response;
+      }
+      return { ok: true, status: 200, json: async () => ({}) } as Response;
+    });
+
+    const req = new Request('http://localhost:3000/api/builds/dispatch', {
+      method: 'POST',
+      body: JSON.stringify({ formula: 'ghostty', type: 'cask', force: true }),
+      headers: {
+        'Content-Type': 'application/json',
+        cookie: authCookie,
+      },
+    });
+
+    const res = await dispatchHandler(req);
+    expect(res.status).toBe(202);
+    expect(dispatchedBody.inputs).toEqual({
+      casks: 'ghostty',
+      force: true,
+      with_deps: false,
+    });
+  });
 });

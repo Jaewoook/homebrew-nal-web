@@ -117,4 +117,44 @@ describe('FormulaCard Component', () => {
     const links = screen.queryAllByRole('link');
     expect(links.length).toBe(0);
   });
+
+  it('renders cask badge, --cask install command, and Download Binary label when packageType is cask', async () => {
+    const sampleCask = {
+      name: 'ghostty',
+      packageType: 'cask' as const,
+      version: '1.1.2',
+      desc: 'Terminal emulator',
+      homepage: 'https://ghostty.org',
+      dependencies: [],
+      hasBottle: true,
+      releaseTag: 'cask-ghostty.1.1.2',
+      releaseUrl: 'https://github.com/Jaewoook/homebrew-nal/releases/tag/cask-ghostty.1.1.2',
+      bottleUrl: 'https://github.com/Jaewoook/homebrew-nal/releases/download/cask-ghostty.1.1.2/Ghostty.dmg',
+      bottleFilename: 'Ghostty.dmg',
+      bottleSize: 45000000,
+    };
+
+    let capturedBody: any = null;
+    vi.spyOn(global, 'fetch').mockImplementation(async (_url: any, init?: any) => {
+      capturedBody = JSON.parse(init?.body || '{}');
+      return { ok: true, status: 202 } as Response;
+    });
+
+    render(<FormulaCard formula={sampleCask} isAuthenticated={true} />);
+    expect(screen.getByText('cask')).toBeDefined();
+
+    fireEvent.click(screen.getByText('ghostty'));
+    expect(screen.getByText('brew install --cask jaewoook/nal/ghostty')).toBeDefined();
+    expect(screen.getByRole('link', { name: /Download Binary/i })).toBeDefined();
+
+    fireEvent.click(screen.getByText('Request Sync & Build'));
+    await waitFor(() => {
+      expect(capturedBody).toEqual({
+        formula: 'ghostty',
+        type: 'cask',
+        force: false,
+        with_deps: false,
+      });
+    });
+  });
 });
