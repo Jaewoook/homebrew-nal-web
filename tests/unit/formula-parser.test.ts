@@ -53,6 +53,87 @@ describe('Formula Ruby Parser', () => {
     expect(formula.version).toBe('9.12');
   });
 
+  it('extracts 4-part version numbers correctly (e.g. pinentry-mac 1.3.1.1)', () => {
+    const pinentryRb = `
+      class PinentryMac < Formula
+        desc "Pinentry for GPG on Mac"
+        homepage "https://github.com/GPGTools/pinentry"
+        url "https://github.com/GPGTools/pinentry/archive/refs/tags/v1.3.1.1.tar.gz"
+        sha256 "ba929dd1c57b102fbfca12bc2d784be441498e7c82ee97a1231cbe03dcda7ae9"
+
+        bottle do
+          root_url "https://github.com/Jaewoook/homebrew-nal/releases/download/pinentry-mac.1.3.1.1"
+          sha256 sequoia: "10557f7b31c38aa1e33bf8b70e19a306a07361663d8952df46d3a3022b1680af"
+        end
+      end
+    `;
+    const formula = parseFormulaRuby('pinentry-mac', pinentryRb);
+    expect(formula.version).toBe('1.3.1.1');
+    expect(formula.fullVersion).toBe('1.3.1.1');
+  });
+
+  it('ignores version directives inside fails_with compiler blocks', () => {
+    const nodeRb = `
+      class Node < Formula
+        desc "Platform built on V8 to build network applications"
+        homepage "https://nodejs.org/"
+        url "https://nodejs.org/dist/v26.12.1/node-v26.12.1.tar.xz"
+        sha256 "abcdef"
+
+        fails_with :gcc do
+          version "12"
+          cause "Node 26 requires GCC 13 or newer"
+        end
+      end
+    `;
+    const formula = parseFormulaRuby('node', nodeRb);
+    expect(formula.version).toBe('26.12.1');
+  });
+
+  it('extracts version from directory segment when archive filename is generic', () => {
+    const denoRb = `
+      class Deno < Formula
+        desc "Secure runtime for JavaScript and TypeScript"
+        homepage "https://deno.land/"
+        url "https://github.com/denoland/deno/releases/download/v2.9.8/deno_src.tar.gz"
+        sha256 "fedcba"
+      end
+    `;
+    const formula = parseFormulaRuby('deno', denoRb);
+    expect(formula.version).toBe('2.9.8');
+  });
+
+  it('extracts date-based versions from .pem URLs', () => {
+    const caCertRb = `
+      class CaCertificates < Formula
+        desc "Mozilla CA cert bundle"
+        homepage "https://curl.se/docs/caextract.html"
+        url "https://curl.se/ca/cacert-2026-10-20.pem"
+        sha256 "123456"
+      end
+    `;
+    const formula = parseFormulaRuby('ca-certificates', caCertRb);
+    expect(formula.version).toBe('2026-10-20');
+  });
+
+  it('extracts version from go and llvm src archive formats', () => {
+    const goRb = `
+      class Go < Formula
+        desc "Open source programming language"
+        url "https://go.dev/dl/go1.27.2.src.tar.gz"
+      end
+    `;
+    expect(parseFormulaRuby('go', goRb).version).toBe('1.27.2');
+
+    const llvmRb = `
+      class Llvm < Formula
+        desc "Next-gen compiler infrastructure"
+        url "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.4/llvm-project-23.1.4.src.tar.xz"
+      end
+    `;
+    expect(parseFormulaRuby('llvm', llvmRb).version).toBe('23.1.4');
+  });
+
   it('parses revision and constructs fullVersion with revision suffix', () => {
     const ffmpegRb = `
       class Ffmpeg < Formula

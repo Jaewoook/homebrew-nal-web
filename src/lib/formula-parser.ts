@@ -1,40 +1,68 @@
 import { Formula } from '@/types/formula';
 
 export function parseFormulaRuby(name: string, content: string): Formula {
-  const descMatch = content.match(/desc\s+["'](.*?)["']/);
-  const homepageMatch = content.match(/homepage\s+["'](.*?)["']/);
-  const urlMatch = content.match(/url\s+["'](.*?)["']/);
-  const licenseMatch = content.match(/license\s+["'](.*?)["']/);
+  // 1. Remove fails_with blocks so compiler versions (e.g. version "11") are ignored
+  const cleanContent = content.replace(/fails_with\s+:[a-zA-Z0-9_]+\s+do[\s\S]*?end/g, '');
+
+  const descMatch = cleanContent.match(/desc\s+["'](.*?)["']/);
+  const homepageMatch = cleanContent.match(/homepage\s+["'](.*?)["']/);
+  const licenseMatch = cleanContent.match(/license\s+["'](.*?)["']/);
 
   // Explicit revision
-  const revisionMatch = content.match(/revision\s+([0-9]+)/);
+  const revisionMatch = cleanContent.match(/^\s*revision\s+([0-9]+)/m);
   const revision = revisionMatch ? parseInt(revisionMatch[1], 10) : undefined;
 
-  // Explicit version
-  const explicitVersionMatch = content.match(/version\s+["'](.*?)["']/);
-
+  // Explicit version (anchored to prevent matching in nested helper blocks)
+  const explicitVersionMatch = cleanContent.match(/^\s*version\s+["'](.*?)["']/m);
   let version = explicitVersionMatch ? explicitVersionMatch[1] : '';
 
-  // Extract from url if explicit version is absent
+  const urlMatch = cleanContent.match(/^\s*url\s+["'](.*?)["']/m);
+
+  // Extract from primary url if explicit version is absent
   if (!version && urlMatch) {
-    const rawUrl = urlMatch[1];
-    // Strip query strings or hash
-    const url = rawUrl.split(/[?#]/)[0];
-    const tagMatch = url.match(/\/v?([0-9]+\.[0-9]+(?:\.[0-9a-zA-Z_\-]+)?)(?:\.tar\.(?:gz|xz|bz2|zst)|\.tgz|\.tbz|\.zip|\/archive)/i);
-    if (tagMatch) {
-      version = tagMatch[1];
+    const rawUrl = urlMatch[1].split(/[?#]/)[0];
+    const filename = rawUrl.split('/').pop() || '';
+    const base = filename
+      .replace(/(?:\.tar\.(?:gz|xz|bz2|zst)|\.tar|\.tgz|\.tbz|\.zip|\.7z|\.pem)$/i, '')
+      .replace(/[-.]src$/i, '');
+
+    const m = base.match(
+      /(?:^|[a-zA-Z_-]+|\/tags\/v?)([0-9]+(?:\.[0-9]+)+|[0-9]{4,}(?:-[0-9]{2}-[0-9]{2})?|[0-9]{8,}(?:\.[0-9]+)?)$/
+    );
+    if (m) {
+      version = m[1];
     } else {
-      // Remove archive extensions first before generic version matching
-      const cleanUrl = url.replace(/(?:\.tar\.(?:gz|xz|bz2|zst)|\.tar|\.tgz|\.tbz|\.zip|\.7z)$/i, '');
-      const genericVersionMatch = cleanUrl.match(/[-_./]v?([0-9]+\.[0-9]+(?:\.[0-9a-zA-Z_\-]+)?)$/);
-      if (genericVersionMatch) {
-        version = genericVersionMatch[1];
-      } else {
-        const fallbackMatch = cleanUrl.match(/([0-9]+\.[0-9]+(?:\.[0-9a-zA-Z_\-]+)?)/);
-        if (fallbackMatch) {
-          version = fallbackMatch[1].replace(/\.tar$/i, '');
+      // Version may be in the directory segment (e.g. .../v2.9.8/deno_src.tar.gz)
+      const dirSegments = rawUrl.split('/');
+      for (let i = dirSegments.length - 2; i >= 0; i--) {
+        const seg = dirSegments[i];
+        const segMatch = seg.match(/^v?([0-9]+(?:\.[0-9]+)+)$/);
+        if (segMatch) {
+          version = segMatch[1];
+          break;
         }
       }
+    }
+  }
+
+  // Fallback to bottle root_url (e.g. .../releases/download/<name>.<version>)
+  if (!version) {
+    const rootUrlMatch = cleanContent.match(
+      /root_url\s+["'].*?\/releases\/download\/[a-zA-Z0-9_@+-]+?\.([0-9]+(?:\.[0-9a-zA-Z._+-]+)*)["']/
+    );
+    if (rootUrlMatch) {
+      version = rootUrlMatch[1];
+    }
+  }
+
+  // Generic fallback if url exists but didn't match the specific patterns
+  if (!version && urlMatch) {
+    const cleanUrl = urlMatch[1]
+      .split(/[?#]/)[0]
+      .replace(/(?:\.tar\.(?:gz|xz|bz2|zst)|\.tar|\.tgz|\.tbz|\.zip|\.7z|\.pem)$/i, '');
+    const genericMatch = cleanUrl.match(/([0-9]+(?:\.[0-9]+)+)/);
+    if (genericMatch) {
+      version = genericMatch[1];
     }
   }
 
