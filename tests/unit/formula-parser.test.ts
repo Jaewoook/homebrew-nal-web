@@ -104,4 +104,34 @@ describe('Formula Ruby Parser', () => {
     expect(cask.hasBottle).toBe(true);
     expect(cask.dependencies).toEqual([]);
   });
+
+  it('correctly parses multi-arch cask where on_arm precedes on_intel', () => {
+    const multiArchCaskRb = `
+      cask "docker" do
+        version "4.35.0"
+        on_arm do
+          sha256 "1111111111111111111111111111111111111111111111111111111111111111"
+          url "https://desktop.docker.com/mac/main/arm64/Docker.dmg"
+        end
+        on_intel do
+          sha256 "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+          url "https://github.com/Jaewoook/homebrew-nal/releases/download/cask-docker.4.35.0/docker-4.35.0-amd64.dmg"
+        end
+        name "Docker"
+        desc "App to build and share containerized apps"
+        homepage "https://www.docker.com/products/docker-desktop/"
+        app "Docker.app"
+      end
+    `;
+
+    const cask = parseCaskRuby('docker', multiArchCaskRb);
+    expect(cask.name).toBe('docker');
+    expect(cask.packageType).toBe('cask');
+    expect(cask.version).toBe('4.35.0');
+    expect(cask.hasBottle).toBe(true);
+    expect(cask.bottlePlatforms).toEqual(['x86_64']);
+    expect(cask.url).toBe(
+      'https://github.com/Jaewoook/homebrew-nal/releases/download/cask-docker.4.35.0/docker-4.35.0-amd64.dmg'
+    );
+  });
 });

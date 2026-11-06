@@ -210,7 +210,7 @@ export async function fetchReleasesMap(
       const strippedTag = isCaskRelease ? tagName.slice(5) : tagName;
       let itemName = strippedTag;
       let releaseVersion = '';
-      const versionedFormulaMatch = strippedTag.match(/^([a-zA-Z0-9_+-]+@[0-9.]+)\.(.+)$/);
+      const versionedFormulaMatch = strippedTag.match(/^([a-zA-Z0-9_+-]+@[0-9]+(?:\.[0-9]+)?)\.(.+)$/);
       if (versionedFormulaMatch) {
         itemName = versionedFormulaMatch[1];
         releaseVersion = versionedFormulaMatch[2];
@@ -422,10 +422,16 @@ async function refreshCatalogInternal(): Promise<FormulaCatalog> {
               batch.map(async (file) => {
                 try {
                   const name = file.name.replace(/\.rb$/, '');
-                  const fileRes = await fetch(file.download_url, { headers });
-                  if (fileRes.ok) {
-                    const content = await fileRes.text();
-                    formulas.push(parseCaskRuby(name, content));
+                  const controller = new AbortController();
+                  const timeoutId = setTimeout(() => controller.abort(), 6000);
+                  try {
+                    const fileRes = await fetch(file.download_url, { headers, signal: controller.signal });
+                    if (fileRes.ok) {
+                      const content = await fileRes.text();
+                      formulas.push(parseCaskRuby(name, content));
+                    }
+                  } finally {
+                    clearTimeout(timeoutId);
                   }
                 } catch {
                   // Ignore individual cask file error

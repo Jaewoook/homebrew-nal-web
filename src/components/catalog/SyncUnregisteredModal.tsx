@@ -110,7 +110,9 @@ export function SyncUnregisteredModal({
             <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
               <PlusCircle className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-semibold text-slate-100">Sync & Add New Formula</h2>
+            <h2 className="text-sm font-semibold text-slate-100">
+              {packageType === 'cask' ? 'Sync & Add New Cask' : 'Sync & Add New Formula'}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -124,9 +126,19 @@ export function SyncUnregisteredModal({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <p className="text-xs text-slate-400">
-            Request an unregistered formula from Homebrew Core (e.g., <code className="text-blue-300">ripgrep</code>,{' '}
-            <code className="text-blue-300">deno</code>, <code className="text-blue-300">node@22</code>) to be synchronized into{' '}
-            <span className="text-slate-200 font-mono font-medium">jaewoook/homebrew-nal</span> and built on your runner.
+            {packageType === 'cask' ? (
+              <>
+                Request an unregistered cask from Homebrew Cask (e.g., <code className="text-blue-300">ghostty</code>,{' '}
+                <code className="text-blue-300">docker</code>) to be synchronized into{' '}
+                <span className="text-slate-200 font-mono font-medium">jaewoook/homebrew-nal</span> and mirrored in GitHub Releases.
+              </>
+            ) : (
+              <>
+                Request an unregistered formula from Homebrew Core (e.g., <code className="text-blue-300">ripgrep</code>,{' '}
+                <code className="text-blue-300">deno</code>, <code className="text-blue-300">node@22</code>) to be synchronized into{' '}
+                <span className="text-slate-200 font-mono font-medium">jaewoook/homebrew-nal</span> and built on your runner.
+              </>
+            )}
           </p>
 
           <div className="flex items-center gap-1 p-1 bg-slate-950 border border-slate-800 rounded-lg">

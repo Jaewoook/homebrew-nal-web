@@ -67,6 +67,32 @@ describe('Formula Service', () => {
           },
         ],
       },
+      {
+        tag_name: 'python@3.12.3.12.8',
+        name: 'python@3.12 3.12.8',
+        html_url: 'https://github.com/Jaewoook/homebrew-nal/releases/tag/python@3.12.3.12.8',
+        published_at: '2026-10-21T00:00:00Z',
+        assets: [
+          {
+            name: 'python@3.12-3.12.8.sequoia.bottle.tar.gz',
+            size: 15000000,
+            browser_download_url: 'https://github.com/Jaewoook/homebrew-nal/releases/download/python@3.12.3.12.8/python@3.12-3.12.8.sequoia.bottle.tar.gz',
+          },
+        ],
+      },
+      {
+        tag_name: 'cask-app.latest',
+        name: 'cask-app latest',
+        html_url: 'https://github.com/Jaewoook/homebrew-nal/releases/tag/cask-app.latest',
+        published_at: '2026-10-22T00:00:00Z',
+        assets: [
+          {
+            name: 'app-latest.dmg',
+            size: 50000000,
+            browser_download_url: 'https://github.com/Jaewoook/homebrew-nal/releases/download/cask-app.latest/app-latest.dmg',
+          },
+        ],
+      },
     ];
 
     vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
@@ -87,6 +113,11 @@ describe('Formula Service', () => {
     expect(releaseMap['ffmpeg'].bottleAsset?.platform).toBe('sequoia');
     expect(releaseMap['tmux'].tagName).toBe('tmux.3.8');
     expect(releaseMap['tmux'].bottleAsset?.size).toBe(647515);
+    expect(releaseMap['python@3.12']).toBeDefined();
+    expect(releaseMap['python@3.12'].version).toBe('3.12.8');
+    expect(releaseMap['cask:app']).toBeDefined();
+    expect(releaseMap['cask:app'].version).toBe('latest');
+    expect(releaseMap['cask:app'].bottleAsset?.name).toBe('app-latest.dmg');
   });
 
   it('decorates formula items with release tags and direct bottle download metadata', async () => {
