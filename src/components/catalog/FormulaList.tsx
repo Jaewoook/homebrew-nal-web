@@ -51,15 +51,15 @@ export function FormulaList({
             <button
               onClick={() => handleOpenAddModal('')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors cursor-pointer whitespace-nowrap shadow-sm shrink-0"
-              title="Sync and add an unregistered formula from Homebrew Core"
+              title="Sync and add an unregistered formula or cask from Homebrew"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Sync New Formula</span>
+              <span>Sync New Package</span>
             </button>
           )}
         </div>
         <span className="text-xs text-slate-400 font-mono whitespace-nowrap self-end sm:self-center">
-          Showing {filtered.length} of {formulas.length} formulas
+          Showing {filtered.length} of {formulas.length} packages
         </span>
       </div>
 

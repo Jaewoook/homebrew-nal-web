@@ -208,9 +208,19 @@ export async function fetchReleasesMap(
       const tagName = String(r.tag_name || '');
       const isCaskRelease = tagName.startsWith('cask-');
       const strippedTag = isCaskRelease ? tagName.slice(5) : tagName;
-      const match = strippedTag.match(/^([a-zA-Z0-9._+-]+?)\.([0-9].*)$/);
-      const itemName = match ? match[1] : strippedTag;
-      const releaseVersion = match ? match[2] : '';
+      let itemName = strippedTag;
+      let releaseVersion = '';
+      const versionedFormulaMatch = strippedTag.match(/^([a-zA-Z0-9_+-]+@[0-9.]+)\.(.+)$/);
+      if (versionedFormulaMatch) {
+        itemName = versionedFormulaMatch[1];
+        releaseVersion = versionedFormulaMatch[2];
+      } else {
+        const dotIndex = strippedTag.indexOf('.');
+        if (dotIndex !== -1) {
+          itemName = strippedTag.slice(0, dotIndex);
+          releaseVersion = strippedTag.slice(dotIndex + 1);
+        }
+      }
 
       let bottleAsset: BottleAsset | undefined;
       if (Array.isArray(r.assets)) {

@@ -164,7 +164,7 @@ export function SyncUnregisteredModal({
               autoFocus
               value={formulaName}
               onChange={(e) => setFormulaName(e.target.value)}
-              placeholder="e.g. ripgrep, deno, uv"
+              placeholder={packageType === 'cask' ? 'e.g. ghostty, visual-studio-code, docker' : 'e.g. ripgrep, deno, uv'}
               disabled={loading}
               className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs font-mono text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
             />
